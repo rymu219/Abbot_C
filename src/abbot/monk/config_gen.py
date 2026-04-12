@@ -35,17 +35,18 @@ from abbot.types import (
 logger = logging.getLogger(__name__)
 
 
-def generate_config(candidate: MonkCandidate) -> MonkConfig:
-    """Generate a first-pass MonkConfig from a Monk candidate.
+def generate_config(
+    candidate: MonkCandidate,
+    blueprint=None,
+) -> MonkConfig:
+    """Generate a MonkConfig from a candidate + optional StrategyBlueprint.
 
-    The generated config is conservative by default:
-    - Starts in ANALYSIS_ONLY mode
-    - Requires operator approval before any deployment
-    - Risk limits are tight
-    - Entry thresholds are based on the candidate's pattern
+    When blueprint is provided: entry/exit/risk rules come from data mining.
+    When blueprint is None: falls back to conservative template defaults.
 
     Args:
         candidate: A MonkCandidate from Phase 8.
+        blueprint: Optional StrategyBlueprint from the mining engine.
 
     Returns:
         A MonkConfig ready for testing (Phase 10).
@@ -67,9 +68,9 @@ def generate_config(candidate: MonkCandidate) -> MonkConfig:
         family_id=candidate.series_ticker,
     )
 
-    entry = _generate_entry_rules(candidate)
-    exit_rules = _generate_exit_rules(candidate)
-    risk = _generate_risk_rules(candidate)
+    entry = _generate_entry_rules(candidate, blueprint)
+    exit_rules = _generate_exit_rules(candidate, blueprint)
+    risk = _generate_risk_rules(candidate, blueprint)
 
     deployment = DeploymentInfo(
         mode=DeploymentMode.ANALYSIS_ONLY,
@@ -80,7 +81,7 @@ def generate_config(candidate: MonkCandidate) -> MonkConfig:
     metadata = MonkMetadata(
         version=1,
         parent_version=None,
-        rationale=_generate_rationale(candidate),
+        rationale=_generate_rationale(candidate, blueprint),
         created_at=datetime.now(timezone.utc),
     )
 
@@ -141,41 +142,58 @@ def _suggest_archetype(candidate: MonkCandidate) -> MonkArchetype:
     return MonkArchetype.UPSTREAM_SCOUT
 
 
-def _generate_entry_rules(candidate: MonkCandidate) -> EntryRules:
-    """Generate entry rules based on the candidate's pattern."""
+def _generate_entry_rules(candidate: MonkCandidate, blueprint=None) -> EntryRules:
+    """Generate entry rules. Data-derived when blueprint is available."""
     p = candidate.pattern
 
-    # Base trigger: enter when market transitions to FORMING or ACTIONABLE
-    trigger = {
-        "type": "state_transition",
-        "target_states": ["forming", "actionable"],
-        "min_confidence": 0.5,
-    }
+    if blueprint and blueprint.viable:
+        # DATA-DERIVED RULES from strategy mining
+        trigger = {
+            "type": "price_threshold",
+            "target_states": ["forming", "actionable"],
+            "min_confidence": 0.5,
+        }
+        thresholds = {
+            "preferred_side": blueprint.recommended_side,
+            "entry_price_max": blueprint.optimal_entry,
+            "entry_price_min": blueprint.entry_price_min,
+            "entry_price_range": [blueprint.entry_price_min, blueprint.entry_price_max],
+            "min_volume": blueprint.min_volume_threshold,
+            "max_life_elapsed_pct": blueprint.timing_pct_max,
+        }
+        spread_rules = {
+            "max_spread_pct": 0.30,
+            "prefer_tight": True,
+        }
+        timing = {
+            "min_hours_to_expiry": 1,
+            "preferred_entry_window": blueprint.preferred_timing,
+            "timing_pct_min": blueprint.timing_pct_min,
+            "timing_pct_max": blueprint.timing_pct_max,
+        }
+    else:
+        # TEMPLATE DEFAULTS (fallback)
+        trigger = {
+            "type": "state_transition",
+            "target_states": ["forming", "actionable"],
+            "min_confidence": 0.5,
+        }
+        thresholds = {
+            "preferred_side": "yes",
+            "entry_price_max": 0.50,
+            "min_volume": max(10, p.total_volume * 0.01),
+            "max_life_elapsed_pct": 0.85,
+        }
+        spread_rules = {
+            "max_spread_pct": 0.30,
+            "prefer_tight": True,
+        }
+        timing = {
+            "min_hours_to_expiry": 2,
+            "preferred_entry_window": "early_to_mid_life",
+        }
 
-    # Thresholds calibrated to the family's observed activity
-    thresholds = {
-        "min_volume": max(10, p.total_volume * 0.01),  # 1% of observed family volume
-        "min_open_interest": 5,
-        "max_life_elapsed_pct": 0.85,  # Don't enter markets near expiry
-    }
-
-    # Liquidity rules
-    liquidity_rules = {
-        "min_volume_for_entry": 10,
-        "min_bid_exists": True,
-    }
-
-    # Spread rules
-    spread_rules = {
-        "max_spread_pct": 0.30,  # Don't trade if spread > 30% of midpoint
-        "prefer_tight": True,
-    }
-
-    # Timing
-    timing = {
-        "min_hours_to_expiry": 2,
-        "preferred_entry_window": "early_to_mid_life",
-    }
+    liquidity_rules = {"min_volume_for_entry": 10, "min_bid_exists": True}
 
     return EntryRules(
         trigger=trigger,
@@ -186,14 +204,22 @@ def _generate_entry_rules(candidate: MonkCandidate) -> EntryRules:
     )
 
 
-def _generate_exit_rules(candidate: MonkCandidate) -> ExitRules:
-    """Generate exit rules."""
-    exit_logic = {
-        "type": "state_based",
-        "exit_on_states": ["exhausted"],
-        "exit_on_profit_pct": 0.15,  # Take profit at 15%
-        "exit_on_loss_pct": -0.10,   # Stop loss at 10%
-    }
+def _generate_exit_rules(candidate: MonkCandidate, blueprint=None) -> ExitRules:
+    """Generate exit rules. Data-derived when blueprint is available."""
+    if blueprint and blueprint.viable:
+        exit_logic = {
+            "type": "state_based",
+            "exit_on_states": ["exhausted"],
+            "exit_on_profit_pct": blueprint.take_profit_pct,
+            "exit_on_loss_pct": -blueprint.stop_loss_pct,
+        }
+    else:
+        exit_logic = {
+            "type": "state_based",
+            "exit_on_states": ["exhausted"],
+            "exit_on_profit_pct": 0.15,
+            "exit_on_loss_pct": -0.10,
+        }
 
     invalidation = {
         "volume_drops_below": 5,
@@ -215,13 +241,25 @@ def _generate_exit_rules(candidate: MonkCandidate) -> ExitRules:
     )
 
 
-def _generate_risk_rules(candidate: MonkCandidate) -> RiskRules:
-    """Generate conservative risk rules."""
+def _generate_risk_rules(candidate: MonkCandidate, blueprint=None) -> RiskRules:
+    """Generate risk rules. Sized by strategy quality when blueprint available."""
+    if blueprint and blueprint.viable:
+        return RiskRules(
+            max_exposure=100.0,
+            max_position_size=blueprint.suggested_position_size,
+            max_daily_loss=blueprint.suggested_max_daily_loss,
+            cooldown_seconds=300,
+            additional_limits={
+                "max_concurrent_positions": 3,
+                "max_trades_per_day": 10,
+                "paper_mode_first": True,
+            },
+        )
     return RiskRules(
-        max_exposure=100.0,         # $100 max per market
-        max_position_size=50.0,     # $50 max per position
-        max_daily_loss=25.0,        # $25 max daily loss
-        cooldown_seconds=300,       # 5 min cooldown between trades
+        max_exposure=100.0,
+        max_position_size=50.0,
+        max_daily_loss=25.0,
+        cooldown_seconds=300,
         additional_limits={
             "max_concurrent_positions": 3,
             "max_trades_per_day": 10,
@@ -230,15 +268,30 @@ def _generate_risk_rules(candidate: MonkCandidate) -> RiskRules:
     )
 
 
-def _generate_rationale(candidate: MonkCandidate) -> str:
+def _generate_rationale(candidate: MonkCandidate, blueprint=None) -> str:
     """Generate a human-readable rationale for the config."""
     parts = [
-        f"Auto-generated from candidate {candidate.series_ticker}.",
-        f"Family: {candidate.title}.",
+        f"Family: {candidate.title} ({candidate.series_ticker}).",
         f"Domain: {candidate.domain}, Frequency: {candidate.frequency}.",
-        f"Monk worthiness: {candidate.monk_worthiness:.2f}.",
-        f"Decision: {candidate.decision.value}.",
     ]
-    if candidate.reason_codes:
-        parts.append(f"Signals: {', '.join(candidate.reason_codes[:5])}.")
+
+    if blueprint and blueprint.viable:
+        parts.append(
+            f"STRATEGY MINED from {blueprint.total_settled} settled markets "
+            f"(train={blueprint.train_count}, test={blueprint.test_count})."
+        )
+        parts.append(
+            f"Entry: {blueprint.recommended_side.upper()} "
+            f"{'below' if blueprint.recommended_side == 'yes' else 'above'} "
+            f"${blueprint.optimal_entry:.2f}."
+        )
+        parts.append(
+            f"Train WR: {blueprint.train_win_rate*100:.1f}%, "
+            f"Test WR: {blueprint.test_win_rate*100:.1f}%, "
+            f"p={blueprint.statistical_significance:.3f}."
+        )
+    else:
+        parts.append("Template-based config (no strategy mined).")
+        parts.append(f"Worthiness: {candidate.monk_worthiness:.2f}.")
+
     return " ".join(parts)

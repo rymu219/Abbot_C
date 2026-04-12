@@ -152,11 +152,25 @@ def _run_single_monk(stored: StoredMonkConfig) -> dict:
         if last_price <= 0.05 or last_price >= 0.95:
             continue
 
-        # --- ENTRY ---
-        side = "yes" if last_price < 0.50 else "no"
-        entry_price = yes_ask if side == "yes" else (1.0 - yes_bid)
+        # --- ENTRY: Use strategy-derived side and price from config ---
+        preferred_side = entry_thresholds.get("preferred_side", "yes")
+        entry_price_max = entry_thresholds.get("entry_price_max", 0.50)
+
+        if preferred_side == "yes":
+            if last_price > entry_price_max:
+                continue  # Price too high for YES entry
+            side = "yes"
+            entry_price = yes_ask if yes_ask > 0 else last_price
+        else:  # "no"
+            no_price = 1.0 - last_price
+            no_entry_max = 1.0 - entry_price_max
+            if no_price > no_entry_max:
+                continue  # NO price too high
+            side = "no"
+            entry_price = 1.0 - yes_bid if yes_bid > 0 else no_price
+
         if entry_price <= 0:
-            entry_price = last_price if side == "yes" else (1.0 - last_price)
+            continue
 
         trade_size = config.risk.max_position_size or 10.0
 

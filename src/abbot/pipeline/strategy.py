@@ -305,7 +305,7 @@ def mine_strategy(family_id: str, family_title: str = "") -> StrategyBlueprint:
         and _trade_pnl(m, best.side, best.threshold) < 0
     ))
     bp.train_profit_factor = train_gains / train_losses if train_losses > 0 else (
-        float("inf") if train_gains > 0 else 0.0
+        999.0 if train_gains > 0 else 0.0
     )
 
     # Entry price range (adjacent profitable thresholds)
@@ -345,7 +345,7 @@ def mine_strategy(family_id: str, family_title: str = "") -> StrategyBlueprint:
         and _trade_pnl(m, best.side, best.threshold) < 0
     ))
     bp.test_profit_factor = test_gains / test_losses if test_losses > 0 else (
-        float("inf") if test_gains > 0 else 0.0
+        999.0 if test_gains > 0 else 0.0
     )
 
     # 11. Confidence metrics

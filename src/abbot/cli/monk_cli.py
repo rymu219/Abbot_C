@@ -126,6 +126,102 @@ def generate(verbose: bool, output: str | None) -> None:
 
 
 @monk_group.command()
+@click.option("--verbose", "-v", is_flag=True)
+def mine(verbose: bool) -> None:
+    """Mine data-derived strategies for all eligible families.
+
+    This is the foundry: Abbot discovers entry/exit/risk rules
+    from settled market outcomes, validates on holdout data,
+    and presents strategies for operator review.
+    """
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-5s %(name)s — %(message)s",
+        datefmt="%H:%M:%S",
+        stream=sys.stderr,
+    )
+
+    from abbot.pipeline.distill import run_distillation
+    from abbot.pipeline.features import compute_features
+    from abbot.pipeline.state import classify_all
+    from abbot.pipeline.candidates import discover_candidates
+    from abbot.pipeline.strategy import mine_strategies
+    from abbot.monk.config_gen import generate_config
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    from sqlalchemy.orm import Session
+
+    # Run full pipeline
+    families = run_distillation()
+    eligible = [f.series_ticker for f in families if f.decision.value != "ignore"]
+    features = compute_features(prioritized_series=eligible)
+    states = classify_all(features)
+    candidates = discover_candidates(families, states)
+
+    # Mine strategies
+    results = mine_strategies(candidates)
+
+    viable = [(c, bp) for c, bp in results if bp.viable]
+    not_viable = [(c, bp) for c, bp in results if not bp.viable]
+
+    click.echo(f"\n{'='*70}")
+    click.echo(f"STRATEGY MINING — {len(results)} candidates evaluated")
+    click.echo(f"{'='*70}")
+    click.echo(f"  Viable strategies: {len(viable)}")
+    click.echo(f"  Not viable: {len(not_viable)}")
+
+    if viable:
+        click.echo(f"\n{'='*70}")
+        click.echo("VIABLE STRATEGIES — Ready for Monk deployment")
+        click.echo(f"{'='*70}")
+
+        engine = get_engine()
+
+        for candidate, bp in viable:
+            config = generate_config(candidate, blueprint=bp)
+
+            click.echo(f"\n  {bp.family_title} ({bp.family_id})")
+            click.echo(f"  Strategy: {bp.recommended_side.upper()} "
+                       f"{'below' if bp.recommended_side == 'yes' else 'above'} "
+                       f"${bp.optimal_entry:.2f}")
+            click.echo(f"  Mined from: {bp.total_settled} settled markets "
+                       f"(train={bp.train_count}, test={bp.test_count})")
+            click.echo(f"  Train: {bp.train_win_rate*100:.1f}% WR, "
+                       f"${bp.train_total_pnl:.2f} P&L, "
+                       f"PF={bp.train_profit_factor:.2f}")
+            click.echo(f"  Test:  {bp.test_win_rate*100:.1f}% WR, "
+                       f"${bp.test_total_pnl:.2f} P&L, "
+                       f"PF={bp.test_profit_factor:.2f}")
+            click.echo(f"  Significance: p={bp.statistical_significance:.3f}, "
+                       f"Consistency: {bp.time_consistency:.0%}")
+
+            # Store to DB
+            with Session(engine) as session:
+                stored = StoredMonkConfig(
+                    name=config.identity.name,
+                    family_id=config.identity.family_id or "",
+                    version=1,
+                    config_data=config.model_dump(mode="json"),
+                    strategy_blueprint=bp.to_dict(),
+                    lifecycle_status="candidate",
+                    approval_status="pending",
+                    deployment_mode="analysis_only",
+                    rationale=config.metadata.rationale,
+                )
+                session.add(stored)
+                session.commit()
+
+            click.echo(f"  → Stored as: {config.identity.name} (pending approval)")
+
+    if not_viable:
+        click.echo(f"\n  Not viable ({len(not_viable)}):")
+        for c, bp in not_viable[:10]:
+            click.echo(f"    {bp.family_id}: {bp.rejection_reason}")
+
+    click.echo()
+
+
+@monk_group.command()
 @click.option("--config-file", "-f", required=True, type=click.Path(exists=True),
               help="Path to generated configs JSON file.")
 @click.option("--index", "-i", default=0, show_default=True,
