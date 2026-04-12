@@ -44,3 +44,6 @@ htmlcov/
 
 # Ruff
 .ruff_cache/
+
+# Runtime logs
+logs/
