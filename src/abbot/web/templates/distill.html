@@ -35,37 +35,28 @@
 <div class="card">
     <table>
         <thead>
-            <tr>
-                <th>Score</th>
-                <th>Series</th>
-                <th>Title</th>
-                <th>Domain</th>
-                <th>Freq</th>
-                <th>Events</th>
-                <th>Volume</th>
-                <th>Repeat</th>
-                <th>Cadence</th>
-                <th>Liquidity</th>
-                <th>Auto</th>
-            </tr>
+            <tr><th>Score</th><th>Series</th><th>Title</th><th>Domain</th><th>Freq</th><th>Events</th><th>Volume</th></tr>
         </thead>
         <tbody>
             {% for f in prioritize %}
+            {% set score = f.composite_score if f.composite_score is defined else (f.get('scores', {}).get('composite', 0) if f.get is defined else 0) %}
+            {% set ticker = f.series_ticker if f.series_ticker is defined else f.get('series_ticker', '') %}
+            {% set title = f.title if f.title is defined else f.get('title', '') %}
+            {% set domain = f.domain.value if f.domain is defined and f.domain.value is defined else f.get('domain', '') %}
+            {% set freq = f.frequency if f.frequency is defined else f.get('frequency', '') %}
+            {% set events = f.event_count if f.event_count is defined else f.get('event_count', 0) %}
+            {% set vol = f.total_volume if f.total_volume is defined else f.get('total_volume', 0) %}
             <tr>
                 <td>
-                    {{ "%.2f"|format(f.composite_score) }}
-                    <span class="score-bar"><span class="score-fill" style="width: {{ (f.composite_score * 100)|int }}%"></span></span>
+                    {{ "%.2f"|format(score) }}
+                    <span class="score-bar"><span class="score-fill" style="width: {{ (score * 100)|int }}%"></span></span>
                 </td>
-                <td>{{ f.series_ticker }}</td>
-                <td style="font-family: var(--font); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ f.title[:35] }}</td>
-                <td><span class="badge badge-blue">{{ f.domain.value }}</span></td>
-                <td>{{ f.frequency }}</td>
-                <td>{{ f.event_count }}</td>
-                <td>{{ "{:,.0f}".format(f.total_volume) if f.total_volume > 0 else '-' }}</td>
-                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.repeatability_score * 100)|int }}%"></span></span></td>
-                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.cadence_score * 100)|int }}%"></span></span></td>
-                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.liquidity_score * 100)|int }}%"></span></span></td>
-                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.automation_score * 100)|int }}%"></span></span></td>
+                <td>{{ ticker }}</td>
+                <td style="font-family: var(--font); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ title[:35] }}</td>
+                <td><span class="badge badge-blue">{{ domain }}</span></td>
+                <td>{{ freq }}</td>
+                <td>{{ events }}</td>
+                <td>{{ "{:,.0f}".format(vol) if vol > 0 else '-' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -82,17 +73,29 @@
         </thead>
         <tbody>
             {% for f in watch %}
+            {% set score = f.composite_score if f.composite_score is defined else (f.get('scores', {}).get('composite', 0) if f.get is defined else 0) %}
+            {% set ticker = f.series_ticker if f.series_ticker is defined else f.get('series_ticker', '') %}
+            {% set title = f.title if f.title is defined else f.get('title', '') %}
+            {% set domain = f.domain.value if f.domain is defined and f.domain.value is defined else f.get('domain', '') %}
+            {% set freq = f.frequency if f.frequency is defined else f.get('frequency', '') %}
+            {% set events = f.event_count if f.event_count is defined else f.get('event_count', 0) %}
             <tr>
-                <td>{{ "%.2f"|format(f.composite_score) }}</td>
-                <td>{{ f.series_ticker }}</td>
-                <td style="font-family: var(--font); max-width: 200px;">{{ f.title[:35] }}</td>
-                <td><span class="badge badge-dim">{{ f.domain.value }}</span></td>
-                <td>{{ f.frequency }}</td>
-                <td>{{ f.event_count }}</td>
+                <td>{{ "%.2f"|format(score) }}</td>
+                <td>{{ ticker }}</td>
+                <td style="font-family: var(--font); max-width: 200px;">{{ title[:35] }}</td>
+                <td><span class="badge badge-dim">{{ domain }}</span></td>
+                <td>{{ freq }}</td>
+                <td>{{ events }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+</div>
+{% endif %}
+
+{% if from_cache %}
+<div style="text-align: right; margin-top: 8px; font-size: 11px; color: var(--text-dim);">
+    Served from cache · <a href="#" onclick="fetch('/api/cache/refresh',{method:'POST'}).then(()=>setTimeout(()=>location.reload(),15000))" style="color: var(--accent);">Refresh</a>
 </div>
 {% endif %}
 {% endblock %}

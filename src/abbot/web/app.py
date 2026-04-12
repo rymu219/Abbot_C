@@ -19,7 +19,9 @@ app = FastAPI(title="Abbot", docs_url=None, redoc_url=None)
 
 @app.on_event("startup")
 async def startup_event():
-    """Start the background scheduler when the web app launches."""
+    """Start the background scheduler and ensure cache table exists."""
+    from abbot.pipeline.cache import ensure_cache_table
+    ensure_cache_table()
     from abbot.scheduler.jobs import start_scheduler
     start_scheduler()
     logger.info("Abbot started with background scheduler")
@@ -108,31 +110,44 @@ async def overview(request: Request):
 
 @app.get("/distill", response_class=HTMLResponse)
 async def distill_page(request: Request):
-    """Distillation results with domain filtering."""
-    from abbot.pipeline.distill import run_distillation
+    """Distillation results with domain filtering. Reads from cache."""
+    from abbot.pipeline.cache import get_cached
 
     domain_filter = request.query_params.get("domain")
-    families = run_distillation()
+    cached = get_cached("distillation")
 
-    # Collect unique domains for filter tabs
-    domains = sorted(set(f.domain.value for f in families if f.decision.value != "ignore"))
+    if cached:
+        data = cached["data"]
+        prioritize = data.get("prioritize", [])
+        watch = data.get("watch", [])
+        domains = data.get("domains", [])
+        total = data.get("total", 0)
+        ignore_count = data.get("ignore_count", 0)
 
-    # Apply domain filter
-    if domain_filter:
-        families_filtered = [f for f in families if f.domain.value == domain_filter]
+        if domain_filter:
+            prioritize = [f for f in prioritize if f.get("domain") == domain_filter]
+            watch = [f for f in watch if f.get("domain") == domain_filter]
     else:
-        families_filtered = families
-
-    prioritize = [f for f in families_filtered if f.decision.value == "prioritize"]
-    watch = [f for f in families_filtered if f.decision.value == "watch"]
+        # Fallback: compute live
+        from abbot.pipeline.distill import run_distillation
+        families = run_distillation()
+        domains = sorted(set(f.domain.value for f in families if f.decision.value != "ignore"))
+        total = len(families)
+        ignore_count = sum(1 for f in families if f.decision.value == "ignore")
+        prioritize = [f.to_dict() for f in families if f.decision.value == "prioritize"]
+        watch = [f.to_dict() for f in families if f.decision.value == "watch"]
+        if domain_filter:
+            prioritize = [f for f in prioritize if f.get("domain") == domain_filter]
+            watch = [f for f in watch if f.get("domain") == domain_filter]
 
     return templates.TemplateResponse(request, "distill.html", {
         "prioritize": prioritize,
         "watch": watch[:30],
-        "total": len(families),
-        "ignore_count": sum(1 for f in families if f.decision.value == "ignore"),
+        "total": total,
+        "ignore_count": ignore_count,
         "domains": domains,
         "domain_filter": domain_filter,
+        "from_cache": cached is not None,
     })
 
 
@@ -190,39 +205,62 @@ async def activity_page(request: Request):
 
 @app.get("/scan", response_class=HTMLResponse)
 async def scan_page(request: Request):
-    """Current market scan results with state filtering."""
-    from abbot.pipeline.features import compute_features
-    from abbot.pipeline.state import classify_all
+    """Market scan results. Reads from cache."""
+    from abbot.pipeline.cache import get_cached
 
     state_filter = request.query_params.get("state")
+    cached = get_cached("scan")
 
-    features = compute_features()
-    states = classify_all(features)
+    if cached:
+        data = cached["data"]
+        all_states = data.get("states", [])
+        dist = data.get("distribution", {})
+        total = data.get("total", 0)
+        features_map = data.get("features_map", {})
 
-    # Build features lookup for the template
-    features_map = {
-        f.ticker: {"volume": f.volume, "last_price": f.last_price, "spread": f.spread}
-        for f in features
-    }
+        if state_filter == "all":
+            filtered = all_states
+        elif state_filter:
+            filtered = [s for s in all_states if s.get("state") == state_filter]
+        else:
+            filtered = all_states  # Already non-ignore from cache
 
-    dist = {}
-    for s in states:
-        dist[s.state.value] = dist.get(s.state.value, 0) + 1
-
-    # Apply filter
-    if state_filter == "all":
-        filtered = states
-    elif state_filter:
-        filtered = [s for s in states if s.state.value == state_filter]
+        # Convert dicts to objects for template compatibility
+        class StateView:
+            pass
+        state_objs = []
+        for s in filtered[:100]:
+            obj = StateView()
+            obj.ticker = s.get("ticker", "")
+            obj.event_ticker = s.get("event_ticker", "")
+            obj.series_ticker = s.get("series_ticker")
+            obj.score = s.get("score", 0)
+            obj.confidence = s.get("confidence", 0)
+            obj.reason_codes = s.get("reason_codes", [])
+            # Create a mock state enum
+            class MockState:
+                def __init__(self, v): self.value = v
+            obj.state = MockState(s.get("state", "ignore"))
+            state_objs.append(obj)
     else:
-        filtered = [s for s in states if s.state.value != "ignore"]
-
-    filtered.sort(key=lambda s: s.score, reverse=True)
+        # Fallback: compute live
+        from abbot.pipeline.features import compute_features
+        from abbot.pipeline.state import classify_all
+        features = compute_features()
+        states = classify_all(features)
+        features_map = {f.ticker: {"volume": f.volume, "last_price": f.last_price, "spread": f.spread} for f in features}
+        dist = {}
+        for s in states:
+            dist[s.state.value] = dist.get(s.state.value, 0) + 1
+        non_ignore = [s for s in states if s.state.value != "ignore"]
+        non_ignore.sort(key=lambda s: s.score, reverse=True)
+        state_objs = non_ignore[:100]
+        total = len(states)
 
     return templates.TemplateResponse(request, "scan.html", {
-        "states": filtered[:100],
+        "states": state_objs,
         "distribution": dist,
-        "total": len(states),
+        "total": total,
         "state_filter": state_filter,
         "features_map": features_map,
     })
@@ -468,6 +506,15 @@ async def api_monk_kill(monk_id: int):
             config.approval_status = "revoked"
             session.commit()
     return HTMLResponse('<div class="badge badge-red">Killed</div>')
+
+
+@app.post("/api/cache/refresh")
+async def api_cache_refresh():
+    """Recompute and cache all pipeline results."""
+    from abbot.pipeline.cache import run_and_cache_pipeline
+    import threading
+    threading.Thread(target=run_and_cache_pipeline, daemon=True).start()
+    return HTMLResponse('<div class="badge badge-green">Cache refresh started</div>')
 
 
 @app.post("/api/scoring/update")

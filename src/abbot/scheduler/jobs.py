@@ -97,6 +97,13 @@ def _run_focused_ingest() -> None:
         for family in families:
             ingest_markets(series_ticker=family, max_pages=2)
 
+        # Refresh cache after ingest
+        try:
+            from abbot.pipeline.cache import run_and_cache_pipeline
+            run_and_cache_pipeline()
+        except Exception as cache_err:
+            logger.warning("Cache refresh failed: %s", str(cache_err)[:100])
+
     except Exception as e:
         logger.error("Focused ingest failed: %s", str(e)[:200])
 
