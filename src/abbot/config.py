@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     # Database
     database_url: str = ""
 
+    @property
+    def database_url_sync(self) -> str:
+        """Database URL with the psycopg (v3) driver for SQLAlchemy."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return url
+
     # Application
     app_name: str = "Abbot"
     debug: bool = False

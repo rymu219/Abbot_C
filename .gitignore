@@ -16,6 +16,8 @@ build/
 .env
 *.pem
 *.key
+*.keym
+secrets/
 
 # IDE
 .vscode/
