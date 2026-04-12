@@ -1,0 +1,32 @@
+# Abbot Scoring Configuration v1
+# Used by the distillation engine (Phase 5) to evaluate family worthiness.
+# All weights sum to 1.0 within each scoring group.
+
+[family_worthiness]
+# Weights for family evaluation (Section 3.3 of PRD)
+repeatability = 0.25
+cadence = 0.15
+liquidity = 0.20
+spread = 0.15
+clarity = 0.10
+automation_fit = 0.15
+
+[family_thresholds]
+# Minimum scores for family decisions
+ignore_below = 0.2
+watch_above = 0.2
+prioritize_above = 0.6
+
+[state_classification]
+# Thresholds for market state assignment (Phase 7)
+# These are placeholder values to be calibrated during Phase 7
+early_threshold = 0.2
+forming_threshold = 0.4
+actionable_threshold = 0.6
+exhausted_threshold = 0.8
+
+[monk_candidate]
+# Minimum criteria for Monk candidate decisions (Phase 8)
+min_occurrences = 5
+min_recurrence_score = 0.4
+min_distinctness_score = 0.3
