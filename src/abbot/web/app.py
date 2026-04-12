@@ -170,10 +170,25 @@ async def monks_page(request: Request):
             .group_by(MonkTrade.monk_name)
         ).fetchall())
 
+        # Trade counts per monk
+        trades_by_monk = dict(session.execute(
+            select(MonkTrade.monk_name, func.count())
+            .group_by(MonkTrade.monk_name)
+        ).fetchall())
+
+        # Open positions per monk
+        open_by_monk = dict(session.execute(
+            select(MonkTrade.monk_name, func.count())
+            .where(MonkTrade.status == "open")
+            .group_by(MonkTrade.monk_name)
+        ).fetchall())
+
     return templates.TemplateResponse(request, "monks.html", {
         "configs": configs,
         "trades": trades,
         "pnl_by_monk": pnl_by_monk,
+        "trades_by_monk": trades_by_monk,
+        "open_by_monk": open_by_monk,
     })
 
 
@@ -209,6 +224,71 @@ async def api_pipeline_run(request: Request):
     import threading
     threading.Thread(target=_run_monks, daemon=True).start()
     return HTMLResponse('<div class="badge badge-green">Monk scan started</div>')
+
+
+@app.post("/api/monk/approve/{monk_id}")
+async def api_monk_approve(monk_id: int):
+    """Approve a Monk for paper trading."""
+    from sqlalchemy.orm import Session as DBSession
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    engine = get_engine()
+    with DBSession(engine) as session:
+        config = session.get(StoredMonkConfig, monk_id)
+        if config:
+            config.approval_status = "approved"
+            config.lifecycle_status = "paper"
+            config.deployment_mode = "paper_only"
+            session.commit()
+            return HTMLResponse(f'<div class="badge badge-green">Approved</div>')
+    return HTMLResponse('<div class="badge badge-red">Not found</div>')
+
+
+@app.post("/api/monk/reject/{monk_id}")
+async def api_monk_reject(monk_id: int):
+    """Reject a Monk."""
+    from sqlalchemy.orm import Session as DBSession
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    engine = get_engine()
+    with DBSession(engine) as session:
+        config = session.get(StoredMonkConfig, monk_id)
+        if config:
+            config.approval_status = "rejected"
+            config.lifecycle_status = "retired"
+            session.commit()
+    return HTMLResponse('<div class="badge badge-red">Rejected</div>')
+
+
+@app.post("/api/monk/pause/{monk_id}")
+async def api_monk_pause(monk_id: int):
+    """Pause a running Monk."""
+    from sqlalchemy.orm import Session as DBSession
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    engine = get_engine()
+    with DBSession(engine) as session:
+        config = session.get(StoredMonkConfig, monk_id)
+        if config:
+            config.lifecycle_status = "paused"
+            session.commit()
+    return HTMLResponse('<div class="badge badge-yellow">Paused</div>')
+
+
+@app.post("/api/monk/kill/{monk_id}")
+async def api_monk_kill(monk_id: int):
+    """Kill (retire) a Monk permanently."""
+    from sqlalchemy.orm import Session as DBSession
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    engine = get_engine()
+    with DBSession(engine) as session:
+        config = session.get(StoredMonkConfig, monk_id)
+        if config:
+            config.lifecycle_status = "retired"
+            config.approval_status = "revoked"
+            session.commit()
+    return HTMLResponse('<div class="badge badge-red">Killed</div>')
 
 
 @app.post("/api/scoring/update")

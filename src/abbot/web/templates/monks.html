@@ -9,45 +9,129 @@
         <div class="card-value" style="color: var(--green);">{{ configs|selectattr('lifecycle_status', 'in', ['paper','probation','live','scaled'])|list|length }}</div>
     </div>
     <div class="card">
-        <div class="card-title">Open Positions</div>
-        <div class="card-value">{{ trades|selectattr('status', 'equalto', 'open')|list|length }}</div>
+        <div class="card-title">Pending Review</div>
+        <div class="card-value" style="color: var(--yellow);">{{ configs|selectattr('approval_status', 'equalto', 'pending')|list|length }}</div>
     </div>
     <div class="card">
         <div class="card-title">Total Realized P&L</div>
-        <div class="card-value {% if pnl_by_monk.values()|sum > 0 %}state-actionable{% elif pnl_by_monk.values()|sum < 0 %}state-exhausted{% endif %}">
-            ${{ "%.2f"|format(pnl_by_monk.values()|sum) if pnl_by_monk else "0.00" }}
+        <div class="card-value {% if (pnl_by_monk.values()|list|sum if pnl_by_monk else 0) > 0 %}state-actionable{% elif (pnl_by_monk.values()|list|sum if pnl_by_monk else 0) < 0 %}state-exhausted{% endif %}">
+            ${{ "%.2f"|format(pnl_by_monk.values()|list|sum if pnl_by_monk else 0) }}
         </div>
     </div>
 </div>
 
-<div style="margin: 12px 0;">
-    <button onclick="fetch('/api/pipeline/run',{method:'POST'}).then(()=>location.reload())" style="background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">Run Monk Scan</button>
-    <button onclick="fetch('/api/ingest/run',{method:'POST'}).then(()=>{})" style="background: var(--border); color: var(--text); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: 8px;">Run Ingest</button>
+<div style="margin: 16px 0;">
+    <button onclick="fetch('/api/pipeline/run',{method:'POST'})" class="btn btn-primary">Run Monk Scan</button>
+    <button onclick="fetch('/api/ingest/run',{method:'POST'})" class="btn btn-secondary">Run Ingest</button>
 </div>
 
-{% if configs %}
-<h2>Deployed Monks</h2>
-<div class="card">
-    <table>
-        <thead>
-            <tr><th>Name</th><th>Family</th><th>Status</th><th>Mode</th><th>Approval</th><th>P&L</th><th>Since</th></tr>
-        </thead>
-        <tbody>
-            {% for c in configs %}
-            <tr>
-                <td style="font-family: var(--font);">{{ c.name }}</td>
-                <td>{{ c.family_id }}</td>
-                <td><span class="badge badge-{% if c.lifecycle_status in ['live','scaled'] %}green{% elif c.lifecycle_status == 'paper' %}blue{% elif c.lifecycle_status == 'paused' %}yellow{% else %}dim{% endif %}">{{ c.lifecycle_status }}</span></td>
-                <td>{{ c.deployment_mode }}</td>
-                <td><span class="badge badge-{% if c.approval_status == 'approved' %}green{% elif c.approval_status == 'rejected' %}red{% else %}dim{% endif %}">{{ c.approval_status }}</span></td>
-                <td style="{% if pnl_by_monk.get(c.name, 0) > 0 %}color: var(--green){% elif pnl_by_monk.get(c.name, 0) < 0 %}color: var(--red){% endif %}">
-                    ${{ "%.2f"|format(pnl_by_monk.get(c.name, 0)) }}
-                </td>
-                <td style="font-family: var(--font);">{{ c.created_at.strftime('%m/%d %H:%M') if c.created_at else '?' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% for c in configs %}
+<div class="monk-card">
+    <div class="monk-header">
+        <div>
+            <span class="monk-name">{{ c.name }}</span>
+            <span class="badge badge-dim">v{{ c.version }}</span>
+            {% if c.strategy_blueprint %}
+            <span class="badge badge-blue">mined</span>
+            {% else %}
+            <span class="badge badge-dim">template</span>
+            {% endif %}
+        </div>
+        <div>
+            <span class="badge badge-{% if c.lifecycle_status in ['live','scaled'] %}green{% elif c.lifecycle_status == 'paper' %}blue{% elif c.lifecycle_status == 'paused' %}yellow{% elif c.lifecycle_status == 'candidate' %}dim{% else %}red{% endif %}">{{ c.lifecycle_status }}</span>
+        </div>
+    </div>
+
+    <div class="monk-meta">
+        UPSTREAM_SCOUT · {{ c.family_id }} · {{ c.deployment_mode }}
+    </div>
+
+    {% if c.strategy_blueprint %}
+    <div class="monk-section">
+        <div class="monk-section-title">Strategy (Data-Mined)</div>
+        {% set bp = c.strategy_blueprint %}
+        {% set strat = bp.get('strategy', {}) %}
+        <div class="monk-strategy">
+            {{ strat.get('side', '?')|upper }}
+            {{ 'below' if strat.get('side') == 'yes' else 'above' }}
+            ${{ "%.2f"|format(strat.get('optimal_entry', 0)) }}
+        </div>
+        <div class="monk-stats-row">
+            {% set train = bp.get('train', {}) %}
+            {% set test = bp.get('test', {}) %}
+            {% set conf = bp.get('confidence', {}) %}
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train WR</span>
+                <span class="monk-stat-value">{{ "%.1f"|format(train.get('win_rate', 0) * 100) }}%</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Test WR</span>
+                <span class="monk-stat-value">{{ "%.1f"|format(test.get('win_rate', 0) * 100) }}%</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train PF</span>
+                <span class="monk-stat-value">{{ "%.1f"|format(train.get('profit_factor', 0)) }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">p-value</span>
+                <span class="monk-stat-value">{{ "%.3f"|format(conf.get('p_value', 1)) }}</span>
+            </div>
+        </div>
+        <div class="monk-evidence">
+            Mined from {{ bp.get('sample', {}).get('total_settled', 0) }} settled markets
+            (train={{ bp.get('sample', {}).get('train', 0) }}, test={{ bp.get('sample', {}).get('test', 0) }})
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="monk-section">
+        <div class="monk-section-title">Performance</div>
+        <div class="monk-stats-row">
+            <div class="monk-stat">
+                <span class="monk-stat-label">P&L</span>
+                <span class="monk-stat-value {% if pnl_by_monk.get(c.name, 0) > 0 %}state-actionable{% elif pnl_by_monk.get(c.name, 0) < 0 %}state-exhausted{% endif %}">${{ "%.2f"|format(pnl_by_monk.get(c.name, 0)) }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Open</span>
+                <span class="monk-stat-value">{{ open_by_monk.get(c.name, 0) }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Trades</span>
+                <span class="monk-stat-value">{{ trades_by_monk.get(c.name, 0) }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Approval</span>
+                <span class="monk-stat-value">
+                    <span class="badge badge-{% if c.approval_status == 'approved' %}green{% elif c.approval_status == 'rejected' %}red{% else %}yellow{% endif %}">{{ c.approval_status }}</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if c.rationale %}
+    <div class="monk-section">
+        <div class="monk-section-title">Rationale</div>
+        <div class="monk-evidence">{{ c.rationale }}</div>
+    </div>
+    {% endif %}
+
+    <div class="monk-actions">
+        {% if c.approval_status == 'pending' %}
+        <button onclick="fetch('/api/monk/approve/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-primary btn-sm">Approve for Paper</button>
+        <button onclick="fetch('/api/monk/reject/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-danger btn-sm">Reject</button>
+        {% elif c.lifecycle_status in ['paper','live','probation','scaled'] %}
+        <button onclick="fetch('/api/monk/pause/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-secondary btn-sm">Pause</button>
+        <button onclick="fetch('/api/monk/kill/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-danger btn-sm">Kill</button>
+        {% elif c.lifecycle_status == 'paused' %}
+        <button onclick="fetch('/api/monk/approve/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-primary btn-sm">Resume</button>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if not configs %}
+<div class="card" style="text-align: center; padding: 32px; color: var(--text-dim);">
+    No Monks yet. Run <code>abbot monk mine</code> to discover strategies from data.
 </div>
 {% endif %}
 
