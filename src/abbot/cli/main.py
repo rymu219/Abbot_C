@@ -13,5 +13,10 @@ def cli() -> None:
 def status() -> None:
     """Show current system status."""
     click.echo("Abbot v0.1.0")
-    click.echo("Status: Foundation phase (Phase 2 complete)")
-    click.echo("Next: Phase 3 — Data Access and Raw Ingestion")
+    click.echo("Status: Phase 3 — Data Access and Raw Ingestion")
+
+
+# Register sub-command groups
+from abbot.cli.ingest import ingest  # noqa: E402
+
+cli.add_command(ingest)

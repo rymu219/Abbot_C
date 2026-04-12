@@ -16,16 +16,20 @@ load_dotenv()
 
 config = context.config
 
-# Override sqlalchemy.url from environment
+# Override sqlalchemy.url from environment, using psycopg v3 driver
 database_url = os.environ.get("DATABASE_URL", "")
 if database_url:
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Will point to Base.metadata once ORM models exist (Phase 4)
-target_metadata = None
+# Import Base so Alembic sees all registered models
+from abbot.db.models import Base  # noqa: E402
+
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
