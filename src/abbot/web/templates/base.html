@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Abbot{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <nav>
+        <div class="nav-brand">ABBOT</div>
+        <div class="nav-links">
+            <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Overview</a>
+            <a href="/distill" class="{% if request.url.path == '/distill' %}active{% endif %}">Distillation</a>
+            <a href="/scan" class="{% if request.url.path == '/scan' %}active{% endif %}">Scan</a>
+            <a href="/candidates" class="{% if request.url.path == '/candidates' %}active{% endif %}">Candidates</a>
+            <a href="/activity" class="{% if request.url.path == '/activity' %}active{% endif %}">Activity</a>
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Market Scan{% endblock %}
+{% block content %}
+<h1>Market Scan</h1>
+
+<div class="grid grid-4">
+    {% for state_name in ['actionable', 'forming', 'early', 'ignore'] %}
+    <div class="card">
+        <div class="card-title">{{ state_name }}</div>
+        <div class="card-value state-{{ state_name }}">{{ distribution.get(state_name, 0) }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<p style="color: var(--text-dim); font-size: 13px; margin: 12px 0;">{{ total }} total markets scanned</p>
+
+{% if states %}
+<h2>Non-IGNORE Markets</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Score</th><th>State</th><th>Confidence</th><th>Ticker</th><th>Reasons</th></tr>
+        </thead>
+        <tbody>
+            {% for s in states %}
+            <tr>
+                <td>{{ "%.2f"|format(s.score) }}</td>
+                <td><span class="badge badge-{% if s.state.value == 'actionable' %}green{% elif s.state.value == 'forming' %}blue{% elif s.state.value == 'early' %}yellow{% else %}dim{% endif %}">{{ s.state.value }}</span></td>
+                <td>{{ "%.0f"|format(s.confidence * 100) }}%</td>
+                <td>{{ s.ticker[:45] }}</td>
+                <td style="font-family: var(--font); font-size: 11px; color: var(--text-dim);">{{ s.reason_codes[:3]|join(', ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 32px; color: var(--text-dim);">
+    No non-IGNORE markets found. Trends need history — wait for a few ingest cycles.
+</div>
+{% endif %}
+{% endblock %}

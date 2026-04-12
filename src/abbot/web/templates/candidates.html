@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Monk Candidates{% endblock %}
+{% block content %}
+<h1>Monk Candidates</h1>
+
+<div class="grid grid-3">
+    <div class="card">
+        <div class="card-title">Build Candidates</div>
+        <div class="card-value" style="color: var(--green);">{{ build|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Prototype Candidates</div>
+        <div class="card-value" style="color: var(--accent);">{{ prototype|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Total Evaluated</div>
+        <div class="card-value">{{ total }}</div>
+    </div>
+</div>
+
+{% if build %}
+<h2>Build Candidates — Ready for Monk Configs</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Worthiness</th><th>Series</th><th>Title</th><th>Domain</th><th>Frequency</th><th>Archetype</th><th>Events</th></tr>
+        </thead>
+        <tbody>
+            {% for c in build %}
+            <tr>
+                <td>
+                    {{ "%.2f"|format(c.monk_worthiness) }}
+                    <span class="score-bar"><span class="score-fill" style="width: {{ (c.monk_worthiness * 100)|int }}%"></span></span>
+                </td>
+                <td>{{ c.series_ticker }}</td>
+                <td style="font-family: var(--font); max-width: 180px;">{{ c.title[:35] }}</td>
+                <td><span class="badge badge-blue">{{ c.domain }}</span></td>
+                <td>{{ c.frequency }}</td>
+                <td><span class="badge badge-dim">{{ c.archetype_suggestion or '-' }}</span></td>
+                <td>{{ c.pattern.event_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if prototype %}
+<h2>Prototype Candidates — Worth Testing</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Worthiness</th><th>Series</th><th>Title</th><th>Domain</th><th>Frequency</th><th>Events</th></tr>
+        </thead>
+        <tbody>
+            {% for c in prototype %}
+            <tr>
+                <td>{{ "%.2f"|format(c.monk_worthiness) }}</td>
+                <td>{{ c.series_ticker }}</td>
+                <td style="font-family: var(--font); max-width: 200px;">{{ c.title[:35] }}</td>
+                <td><span class="badge badge-dim">{{ c.domain }}</span></td>
+                <td>{{ c.frequency }}</td>
+                <td>{{ c.pattern.event_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

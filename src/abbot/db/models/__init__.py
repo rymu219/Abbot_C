@@ -14,3 +14,4 @@ class Base(DeclarativeBase):
 
 # Import all model modules so they register with Base.metadata
 from abbot.db.models import raw  # noqa: F401, E402
+from abbot.monitor import events  # noqa: F401, E402  (AuditEvent model)

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Activity{% endblock %}
+{% block content %}
+<h1>Activity & Audit Trail</h1>
+
+<h2>Ingestion History</h2>
+<div class="card">
+    {% if ingests %}
+    <table>
+        <thead>
+            <tr><th>Ingest ID</th><th>Type</th><th>Status</th><th>Records</th><th>Started</th></tr>
+        </thead>
+        <tbody>
+            {% for i in ingests %}
+            <tr>
+                <td>{{ i.ingest_id }}</td>
+                <td>{{ i.ingest_type }}</td>
+                <td><span class="badge badge-{% if i.status == 'success' %}green{% elif i.status == 'failed' %}red{% else %}yellow{% endif %}">{{ i.status }}</span></td>
+                <td>{{ "{:,}".format(i.records_count) }}</td>
+                <td style="font-family: var(--font);">{{ i.started_at.strftime('%Y-%m-%d %H:%M:%S') if i.started_at else '?' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: var(--text-dim); padding: 16px;">No ingestion runs recorded yet.</p>
+    {% endif %}
+</div>
+
+{% if events %}
+<h2>Recent Events</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Message</th></tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr>
+                <td style="font-family: var(--font);">{{ e.created_at.strftime('%H:%M:%S') }}</td>
+                <td>{{ e.event_type }}</td>
+                <td><span class="badge badge-{% if e.severity == 'error' %}red{% elif e.severity == 'warning' %}yellow{% else %}dim{% endif %}">{{ e.severity }}</span></td>
+                <td>{{ e.source }}</td>
+                <td style="font-family: var(--font); font-size: 12px; max-width: 400px; overflow: hidden; text-overflow: ellipsis;">{{ e.message[:80] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

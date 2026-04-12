@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Overview{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+
+<div class="grid grid-4">
+    <div class="card">
+        <div class="card-title">Data Freshness</div>
+        <div class="card-value" style="font-size: 16px;">{{ summary.data_freshness.latest_ingest[:19] if summary.data_freshness.latest_ingest != 'never' else 'No data' }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">DB Size</div>
+        <div class="card-value" style="font-size: 16px;">{{ summary.storage.db_size }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Events Today</div>
+        <div class="card-value">{{ summary.summary.events_today }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Events This Week</div>
+        <div class="card-value">{{ summary.summary.events_this_week }}</div>
+    </div>
+</div>
+
+<h2>Data Storage</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Table</th><th>Records</th></tr>
+        </thead>
+        <tbody>
+            {% for table, count in summary.storage.tables.items() %}
+            <tr>
+                <td>{{ table }}</td>
+                <td>{{ "{:,}".format(count) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2>Quick Actions</h2>
+<div class="grid grid-3">
+    <a href="/distill" class="card" style="text-decoration: none;">
+        <div class="card-title">Distillation</div>
+        <div style="color: var(--text-dim); font-size: 13px;">View scored families</div>
+    </a>
+    <a href="/scan" class="card" style="text-decoration: none;">
+        <div class="card-title">Market Scan</div>
+        <div style="color: var(--text-dim); font-size: 13px;">Current state classifications</div>
+    </a>
+    <a href="/candidates" class="card" style="text-decoration: none;">
+        <div class="card-title">Candidates</div>
+        <div style="color: var(--text-dim); font-size: 13px;">Monk-worthy patterns</div>
+    </a>
+</div>
+{% endblock %}
