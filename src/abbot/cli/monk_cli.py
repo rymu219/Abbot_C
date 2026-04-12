@@ -219,6 +219,105 @@ def test_all(config_file: str, verbose: bool) -> None:
     click.echo(f"\n  Verdicts: {', '.join(f'{v}={c}' for v, c in sorted(verdicts.items()))}")
 
 
+@monk_group.command()
+@click.option("--config-file", "-f", required=True, type=click.Path(exists=True))
+@click.option("--index", "-i", required=True, type=int, help="Config index to deploy for paper trading.")
+def deploy_paper(config_file: str, index: int) -> None:
+    """Store a config in the DB and approve it for paper trading."""
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    from abbot.types import MonkConfig
+    from sqlalchemy.orm import Session
+    from datetime import datetime, timezone
+
+    with open(config_file) as f:
+        configs_data = json.load(f)
+
+    if index >= len(configs_data):
+        click.echo(f"Index {index} out of range (0-{len(configs_data)-1})")
+        return
+
+    entry = configs_data[index]
+    config = MonkConfig.model_validate(entry["config"])
+
+    engine = get_engine()
+    with Session(engine) as session:
+        stored = StoredMonkConfig(
+            name=config.identity.name,
+            family_id=config.identity.family_id or "",
+            version=1,
+            config_data=config.model_dump(mode="json"),
+            lifecycle_status="paper",
+            approval_status="approved",
+            deployment_mode="paper_only",
+            rationale=config.metadata.rationale,
+        )
+        session.add(stored)
+        session.commit()
+        click.echo(f"Deployed for paper trading: {config.identity.name}")
+        click.echo(f"  Family: {config.identity.family_id}")
+        click.echo(f"  Status: PAPER (approved)")
+        click.echo(f"  Run 'abbot monk run' to execute a scan cycle.")
+
+
+@monk_group.command(name="run")
+@click.option("--verbose", "-v", is_flag=True)
+def run_monks(verbose: bool) -> None:
+    """Execute one scan cycle for all active paper/live Monks."""
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-5s %(name)s — %(message)s",
+        datefmt="%H:%M:%S",
+        stream=sys.stderr,
+    )
+
+    from abbot.monk.runner import run_active_monks
+
+    results = run_active_monks()
+
+    if not results:
+        click.echo("No active Monks to run.")
+        return
+
+    click.echo(f"\nRan {len(results)} Monks:")
+    for r in results:
+        status = r.get("status", "?")
+        icon = "+" if status == "ok" else "x"
+        click.echo(
+            f"  [{icon}] {r['monk']}: {r.get('new_entries', 0)} entries, "
+            f"{r.get('closed', 0)} closed, {r.get('open_positions', 0)} open"
+        )
+
+
+@monk_group.command()
+def positions() -> None:
+    """Show all open and recent Monk positions."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import MonkTrade
+
+    engine = get_engine()
+    with Session(engine) as session:
+        trades = session.execute(
+            select(MonkTrade).order_by(MonkTrade.opened_at.desc()).limit(30)
+        ).scalars().all()
+
+    if not trades:
+        click.echo("No trades recorded yet.")
+        return
+
+    click.echo(f"\n{'Monk':<35} {'Side':>4} {'Entry':>6} {'P&L':>8} {'Status':<8} {'Ticker'}")
+    click.echo("-" * 100)
+    for t in trades:
+        pnl = f"${t.pnl:.2f}" if t.pnl is not None else "-"
+        paper = "[P]" if t.is_paper else "[L]"
+        click.echo(
+            f"{paper} {t.monk_name:<32} {t.side:>4} ${t.entry_price:>5.2f} {pnl:>8} "
+            f"{t.status:<8} {t.ticker[:40]}"
+        )
+
+
 def _print_candidates(candidates) -> None:
     click.echo(
         f"\n  {'Worth':>5}  {'Decision':<20} {'Freq':<10} {'Domain':<10} "
