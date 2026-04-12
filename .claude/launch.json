@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "abbot-web",
-      "runtimeExecutable": "uv",
+      "runtimeExecutable": "/Users/ryanmurphy/.local/bin/uv",
       "runtimeArgs": ["run", "abbot", "web", "--port", "8000"],
       "port": 8000
     }
