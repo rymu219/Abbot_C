@@ -159,7 +159,7 @@ def test(config_file: str, index: int, verbose: bool) -> None:
     click.echo(f"\n{'='*60}")
     click.echo(f"TEST REPORT: {report.config_name}")
     click.echo(f"{'='*60}")
-    click.echo(f"  Data: {report.snapshots_analyzed} snapshots, {report.markets_analyzed} markets, {report.data_days:.1f} days")
+    click.echo(f"  Data: {report.markets_evaluated} markets evaluated, {report.settled_markets} settled")
     click.echo(f"  Trades: {report.trade_count} (W:{report.win_count} L:{report.loss_count})")
     click.echo(f"  Win rate: {report.win_rate*100:.1f}%")
     click.echo(f"  P&L: ${report.total_pnl:.2f}")
