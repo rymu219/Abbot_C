@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Strategy Discovery{% endblock %}
+{% block content %}
+<h1>Strategy Discovery</h1>
+<p style="color: var(--text-dim); font-size: 13px; margin-bottom: 16px;">
+    Strategies mined from settled market data. Each row is a data-derived trading signal that Abbot discovered.
+</p>
+
+<div class="grid grid-3">
+    <div class="card metric-card">
+        <div class="card-title">Viable Strategies</div>
+        <div class="metric-big state-actionable">{{ viable|length }}</div>
+    </div>
+    <div class="card metric-card">
+        <div class="card-title">Not Viable</div>
+        <div class="metric-big" style="color: var(--text-dim);">{{ not_viable|length }}</div>
+    </div>
+    <div class="card metric-card">
+        <div class="card-title">Total Mined</div>
+        <div class="metric-big">{{ viable|length + not_viable|length }}</div>
+    </div>
+</div>
+
+{% if viable %}
+<h2>Viable — Ready for Monk Deployment</h2>
+{% for bp in viable %}
+<div class="monk-card">
+    <div class="monk-header">
+        <div>
+            <span class="monk-name">{{ bp.family_title }}</span>
+            <span class="badge badge-green">viable</span>
+        </div>
+        <span style="font-family: var(--mono); font-size: 12px; color: var(--text-dim);">{{ bp.family_id }}</span>
+    </div>
+
+    <div class="monk-section">
+        <div class="monk-section-title">Discovered Strategy</div>
+        <div class="monk-strategy">
+            {{ bp.recommended_side|upper }}
+            {{ 'below' if bp.recommended_side == 'yes' else 'above' }}
+            ${{ "%.2f"|format(bp.optimal_entry) }}
+            <span style="font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 8px;">
+                (range: ${{ "%.2f"|format(bp.entry_price_min) }} – ${{ "%.2f"|format(bp.entry_price_max) }})
+            </span>
+        </div>
+    </div>
+
+    <div class="monk-section">
+        <div class="monk-section-title">Performance</div>
+        <div class="monk-stats-row">
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train WR</span>
+                <span class="monk-stat-value">{{ "%.1f"|format(bp.train_win_rate * 100) }}%</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Test WR</span>
+                <span class="monk-stat-value">{{ "%.1f"|format(bp.test_win_rate * 100) }}%</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train PF</span>
+                <span class="monk-stat-value">{{ "%.1f"|format(bp.train_profit_factor) }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train P&L</span>
+                <span class="monk-stat-value {% if bp.train_total_pnl > 0 %}state-actionable{% endif %}">${{ "%.2f"|format(bp.train_total_pnl) }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Test P&L</span>
+                <span class="monk-stat-value {% if bp.test_total_pnl > 0 %}state-actionable{% endif %}">${{ "%.2f"|format(bp.test_total_pnl) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="monk-section">
+        <div class="monk-section-title">Confidence</div>
+        <div class="monk-stats-row">
+            <div class="monk-stat">
+                <span class="monk-stat-label">Sample</span>
+                <span class="monk-stat-value">{{ bp.total_settled }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train/Test</span>
+                <span class="monk-stat-value">{{ bp.train_count }}/{{ bp.test_count }}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">p-value</span>
+                <span class="monk-stat-value">{% if bp.statistical_significance < 0.001 %}&lt; 0.001{% else %}{{ "%.3f"|format(bp.statistical_significance) }}{% endif %}</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Consistency</span>
+                <span class="monk-stat-value">{{ "%.0f"|format(bp.time_consistency * 100) }}%</span>
+            </div>
+            <div class="monk-stat">
+                <span class="monk-stat-label">Train-Test</span>
+                <span class="monk-stat-value">
+                    <span class="badge badge-{% if bp.train_test_consistent %}green{% else %}yellow{% endif %}">
+                        {{ 'consistent' if bp.train_test_consistent else 'gap' }}
+                    </span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if bp.price_scan %}
+    <div class="monk-section">
+        <div class="monk-section-title">Price Scan (top entries by EV)</div>
+        <table>
+            <thead>
+                <tr><th>Threshold</th><th>Side</th><th>Trades</th><th>Win Rate</th><th>P&L</th><th>EV/trade</th></tr>
+            </thead>
+            <tbody>
+                {% for p in bp.price_scan %}
+                <tr>
+                    <td>${{ "%.2f"|format(p.threshold) }}</td>
+                    <td><span class="badge badge-{% if p.side == 'yes' %}green{% else %}red{% endif %}">{{ p.side }}</span></td>
+                    <td>{{ p.trade_count }}</td>
+                    <td>{{ "%.1f"|format(p.win_rate * 100) }}%</td>
+                    <td>${{ "%.2f"|format(p.total_pnl) }}</td>
+                    <td style="{% if p.expected_value > 0.05 %}color: var(--green){% endif %}">${{ "%.3f"|format(p.expected_value) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if not_viable %}
+<h2>Not Viable</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Family</th><th>Title</th><th>Settled</th><th>Reason</th></tr>
+        </thead>
+        <tbody>
+            {% for bp in not_viable %}
+            <tr>
+                <td>{{ bp.family_id }}</td>
+                <td style="font-family: var(--font);">{{ bp.family_title[:35] }}</td>
+                <td>{{ bp.total_settled }}</td>
+                <td style="font-size: 11px; color: var(--text-dim);">{{ bp.rejection_reason[:60] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

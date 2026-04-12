@@ -3,26 +3,51 @@
 {% block content %}
 <h1>Market Distillation</h1>
 
-<div class="grid grid-3">
-    <div class="card">
+<div class="grid grid-4">
+    <div class="card metric-card">
         <div class="card-title">Total Families</div>
-        <div class="card-value">{{ "{:,}".format(total) }}</div>
+        <div class="metric-big">{{ "{:,}".format(total) }}</div>
     </div>
-    <div class="card">
+    <div class="card metric-card">
         <div class="card-title">Prioritize</div>
-        <div class="card-value" style="color: var(--green);">{{ prioritize|length }}</div>
+        <div class="metric-big state-actionable">{{ prioritize|length }}</div>
     </div>
-    <div class="card">
+    <div class="card metric-card">
+        <div class="card-title">Watch</div>
+        <div class="metric-big" style="color: var(--yellow);">{{ watch|length }}</div>
+    </div>
+    <div class="card metric-card">
         <div class="card-title">Ignored</div>
-        <div class="card-value" style="color: var(--text-dim);">{{ "{:,}".format(ignore_count) }}</div>
+        <div class="metric-big" style="color: var(--text-dim);">{{ "{:,}".format(ignore_count) }}</div>
     </div>
 </div>
 
-<h2>Prioritized Families</h2>
+<!-- Domain filter tabs -->
+<div class="filter-tabs">
+    <a href="/distill" class="filter-tab {% if not domain_filter %}active{% endif %}">All</a>
+    {% for d in domains %}
+    <a href="/distill?domain={{ d }}" class="filter-tab {% if domain_filter == d %}active{% endif %}">{{ d }}</a>
+    {% endfor %}
+</div>
+
+{% if prioritize %}
+<h2>Prioritized Families{% if domain_filter %} — {{ domain_filter }}{% endif %}</h2>
 <div class="card">
     <table>
         <thead>
-            <tr><th>Score</th><th>Series</th><th>Title</th><th>Domain</th><th>Frequency</th><th>Events</th><th>Volume</th></tr>
+            <tr>
+                <th>Score</th>
+                <th>Series</th>
+                <th>Title</th>
+                <th>Domain</th>
+                <th>Freq</th>
+                <th>Events</th>
+                <th>Volume</th>
+                <th>Repeat</th>
+                <th>Cadence</th>
+                <th>Liquidity</th>
+                <th>Auto</th>
+            </tr>
         </thead>
         <tbody>
             {% for f in prioritize %}
@@ -32,30 +57,35 @@
                     <span class="score-bar"><span class="score-fill" style="width: {{ (f.composite_score * 100)|int }}%"></span></span>
                 </td>
                 <td>{{ f.series_ticker }}</td>
-                <td style="font-family: var(--font); max-width: 200px; overflow: hidden; text-overflow: ellipsis;">{{ f.title[:40] }}</td>
+                <td style="font-family: var(--font); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ f.title[:35] }}</td>
                 <td><span class="badge badge-blue">{{ f.domain.value }}</span></td>
                 <td>{{ f.frequency }}</td>
                 <td>{{ f.event_count }}</td>
                 <td>{{ "{:,.0f}".format(f.total_volume) if f.total_volume > 0 else '-' }}</td>
+                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.repeatability_score * 100)|int }}%"></span></span></td>
+                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.cadence_score * 100)|int }}%"></span></span></td>
+                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.liquidity_score * 100)|int }}%"></span></span></td>
+                <td><span class="score-bar" style="width:40px"><span class="score-fill" style="width:{{ (f.automation_score * 100)|int }}%"></span></span></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endif %}
 
 {% if watch %}
-<h2>Watch List (top 30)</h2>
+<h2>Watch List{% if domain_filter %} — {{ domain_filter }}{% endif %} (top 30)</h2>
 <div class="card">
     <table>
         <thead>
-            <tr><th>Score</th><th>Series</th><th>Title</th><th>Domain</th><th>Frequency</th><th>Events</th></tr>
+            <tr><th>Score</th><th>Series</th><th>Title</th><th>Domain</th><th>Freq</th><th>Events</th></tr>
         </thead>
         <tbody>
             {% for f in watch %}
             <tr>
                 <td>{{ "%.2f"|format(f.composite_score) }}</td>
                 <td>{{ f.series_ticker }}</td>
-                <td style="font-family: var(--font); max-width: 200px;">{{ f.title[:40] }}</td>
+                <td style="font-family: var(--font); max-width: 200px;">{{ f.title[:35] }}</td>
                 <td><span class="badge badge-dim">{{ f.domain.value }}</span></td>
                 <td>{{ f.frequency }}</td>
                 <td>{{ f.event_count }}</td>

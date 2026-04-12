@@ -108,18 +108,31 @@ async def overview(request: Request):
 
 @app.get("/distill", response_class=HTMLResponse)
 async def distill_page(request: Request):
-    """Distillation results."""
+    """Distillation results with domain filtering."""
     from abbot.pipeline.distill import run_distillation
 
+    domain_filter = request.query_params.get("domain")
     families = run_distillation()
-    prioritize = [f for f in families if f.decision.value == "prioritize"]
-    watch = [f for f in families if f.decision.value == "watch"]
+
+    # Collect unique domains for filter tabs
+    domains = sorted(set(f.domain.value for f in families if f.decision.value != "ignore"))
+
+    # Apply domain filter
+    if domain_filter:
+        families_filtered = [f for f in families if f.domain.value == domain_filter]
+    else:
+        families_filtered = families
+
+    prioritize = [f for f in families_filtered if f.decision.value == "prioritize"]
+    watch = [f for f in families_filtered if f.decision.value == "watch"]
 
     return templates.TemplateResponse(request, "distill.html", {
         "prioritize": prioritize,
         "watch": watch[:30],
         "total": len(families),
         "ignore_count": sum(1 for f in families if f.decision.value == "ignore"),
+        "domains": domains,
+        "domain_filter": domain_filter,
     })
 
 
@@ -249,6 +262,99 @@ async def monks_page(request: Request):
 
 
 # --- Settings page ---
+
+
+@app.get("/strategies", response_class=HTMLResponse)
+async def strategies_page(request: Request):
+    """Strategy discovery — what Abbot mined from the data."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig
+    from abbot.pipeline.strategy import StrategyBlueprint
+
+    engine = get_engine()
+    with Session(engine) as session:
+        configs = session.execute(
+            select(StoredMonkConfig).where(StoredMonkConfig.strategy_blueprint.isnot(None))
+        ).scalars().all()
+
+    viable = []
+    not_viable = []
+
+    for c in configs:
+        bp_data = c.strategy_blueprint
+        if not bp_data:
+            continue
+
+        # Create a lightweight object for the template
+        class BPView:
+            pass
+
+        bp = BPView()
+        for key, val in bp_data.items():
+            if key == "price_scan":
+                # Convert price scan dicts to objects
+                scans = []
+                for p in (val or []):
+                    ps = BPView()
+                    for k2, v2 in p.items():
+                        setattr(ps, k2, v2)
+                    scans.append(ps)
+                bp.price_scan = scans
+            else:
+                setattr(bp, key, val)
+
+        # Flatten nested dicts with defaults
+        strat = bp_data.get("strategy", {})
+        bp.recommended_side = strat.get("side", "yes")
+        bp.optimal_entry = strat.get("optimal_entry", 0.5)
+        bp.entry_price_min = strat.get("entry_price_min", 0)
+        bp.entry_price_max = strat.get("entry_price_max", 1)
+
+        conf = bp_data.get("confidence", {})
+        bp.sample_sufficient = conf.get("sample_sufficient", False)
+        bp.train_test_consistent = conf.get("train_test_consistent", False)
+        bp.statistical_significance = conf.get("p_value", 1.0)
+        bp.time_consistency = conf.get("time_consistency", 0)
+        train = bp_data.get("train", {})
+        bp.train_win_rate = train.get("win_rate", 0)
+        bp.train_total_pnl = train.get("pnl", 0)
+        bp.train_profit_factor = train.get("profit_factor", 0)
+        bp.train_trade_count = train.get("trades", 0)
+        test = bp_data.get("test", {})
+        bp.test_win_rate = test.get("win_rate", 0)
+        bp.test_total_pnl = test.get("pnl", 0)
+        bp.test_profit_factor = test.get("profit_factor", 0)
+        bp.test_trade_count = test.get("trades", 0)
+        bp.rejection_reason = bp_data.get("rejection_reason", "")
+        bp.family_id = bp_data.get("family_id", "")
+        bp.family_title = bp_data.get("family_title", "")
+        bp.viable = bp_data.get("viable", False)
+        sample = bp_data.get("sample", {})
+        bp.total_settled = sample.get("total_settled", 0)
+        bp.train_count = sample.get("train", 0)
+        bp.test_count = sample.get("test", 0)
+
+        # Sort price scan by EV and filter
+        if hasattr(bp, 'price_scan'):
+            bp.price_scan = sorted(
+                [p for p in bp.price_scan if getattr(p, 'trade_count', 0) >= 10 and getattr(p, 'expected_value', 0) > 0],
+                key=lambda p: getattr(p, 'expected_value', 0),
+                reverse=True,
+            )[:10]  # Top 10 only
+        else:
+            bp.price_scan = []
+
+        if bp_data.get("viable"):
+            viable.append(bp)
+        else:
+            not_viable.append(bp)
+
+    return templates.TemplateResponse(request, "strategies.html", {
+        "viable": viable,
+        "not_viable": not_viable,
+    })
 
 
 @app.get("/settings", response_class=HTMLResponse)
