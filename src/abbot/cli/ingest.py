@@ -93,6 +93,59 @@ def run(
 
 
 @ingest.command()
+@click.option("--max-pages", default=5, show_default=True,
+              help="Max pages per series (1000 markets/page).")
+@click.option("--series", multiple=True, help="Specific series to backfill (repeatable). Omit for defaults.")
+@click.option("--verbose", "-v", is_flag=True)
+def backfill(max_pages: int, series: tuple, verbose: bool) -> None:
+    """Backfill historical settled markets for backtesting.
+
+    Pulls markets (including settled/finalized) for high-volume series
+    so the testing framework can produce real verdicts.
+
+    Examples:
+
+        abbot ingest backfill                    # default series, 5 pages each
+
+        abbot ingest backfill --max-pages 3      # smaller pull
+
+        abbot ingest backfill --series KXNBAGAME --series KXMLBTOTAL
+    """
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-5s %(name)s — %(message)s",
+        datefmt="%H:%M:%S",
+        stream=sys.stderr,
+    )
+
+    from abbot.kalshi.historical import run_backfill
+
+    series_list = list(series) if series else None
+    click.echo("Starting historical backfill...")
+    start = time.time()
+
+    results = run_backfill(
+        series_list=series_list,
+        max_pages_per_series=max_pages,
+    )
+
+    elapsed = time.time() - start
+    click.echo()
+    click.echo("Backfill results:")
+    for r in results:
+        icon = "+" if r.get("status") == "success" else "x"
+        total = r.get("total", "?")
+        settled = r.get("settled", "?")
+        click.echo(f"  [{icon}] {r['series']}: {total} markets ({settled} settled)")
+        if r.get("error"):
+            click.echo(f"      error: {r['error']}")
+
+    total_all = sum(r.get("total", 0) for r in results)
+    settled_all = sum(r.get("settled", 0) for r in results)
+    click.echo(f"\nTotal: {total_all:,} markets ({settled_all:,} settled) in {elapsed:.1f}s")
+
+
+@ingest.command()
 @click.option("--limit", default=10, show_default=True, help="Number of recent runs to show.")
 def log(limit: int) -> None:
     """Show recent ingestion runs."""
