@@ -54,6 +54,48 @@ def daily() -> None:
 
 
 @review.command()
+def capture() -> None:
+    """Show capture accounting for all active Monks."""
+    logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
+
+    from abbot.monitor.capture import compute_capture_metrics
+
+    metrics = compute_capture_metrics()
+
+    click.echo("=" * 60)
+    click.echo("CAPTURE ACCOUNTING")
+    click.echo("=" * 60)
+
+    click.echo(f"\n  Portfolio Capture Rate: {metrics.portfolio_capture_rate:.0%}")
+    click.echo(f"  Eligible: {metrics.total_eligible}  |  Captured: {metrics.total_captured}  |  Uncaptured: {metrics.total_uncaptured}")
+    click.echo(f"  Overlap: {metrics.overlap_count} ({metrics.overlap_rate:.0%})")
+
+    if metrics.monk_metrics:
+        click.echo(f"\n  Per Monk:")
+        for m in metrics.monk_metrics:
+            click.echo(
+                f"    {m.monk_name}: {m.capture_rate:.0%} capture "
+                f"({m.captured_units}/{m.eligible_units} eligible) "
+                f"P&L=${m.realized_pnl:.2f}"
+            )
+            if m.uncaptured_reasons:
+                reasons = ", ".join(f"{r}={c}" for r, c in sorted(m.uncaptured_reasons.items(), key=lambda x: -x[1])[:3])
+                click.echo(f"      uncaptured: {reasons}")
+
+    if metrics.top_uncaptured_reasons:
+        click.echo(f"\n  Top reasons for missed opportunities:")
+        for reason, count in list(metrics.top_uncaptured_reasons.items())[:5]:
+            click.echo(f"    {reason}: {count}")
+
+    if metrics.suggestions:
+        click.echo(f"\n  Suggestions:")
+        for s in metrics.suggestions:
+            click.echo(f"    → {s}")
+
+    click.echo("\n" + "=" * 60)
+
+
+@review.command()
 def weekly() -> None:
     """Generate a weekly review summary."""
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
