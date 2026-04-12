@@ -1,57 +1,149 @@
 {% extends "base.html" %}
-{% block title %}Abbot — Overview{% endblock %}
+{% block title %}Abbot — Command Center{% endblock %}
 {% block content %}
-<h1>Overview</h1>
 
-<div class="grid grid-4">
-    <div class="card">
-        <div class="card-title">Data Freshness</div>
-        <div class="card-value" style="font-size: 16px;">{{ summary.data_freshness.latest_ingest[:19] if summary.data_freshness.latest_ingest != 'never' else 'No data' }}</div>
+<!-- System health bar -->
+<div class="health-bar">
+    <div class="health-item">
+        <span class="health-dot {% if summary.data_freshness.latest_ingest != 'never' %}dot-green{% else %}dot-red{% endif %}"></span>
+        <span>Data: {{ summary.data_freshness.latest_ingest[:16] if summary.data_freshness.latest_ingest != 'never' else 'No data' }}</span>
     </div>
-    <div class="card">
-        <div class="card-title">DB Size</div>
-        <div class="card-value" style="font-size: 16px;">{{ summary.storage.db_size }}</div>
+    <div class="health-item">
+        <span class="health-dot dot-green"></span>
+        <span>DB: {{ summary.storage.db_size }}</span>
     </div>
-    <div class="card">
-        <div class="card-title">Events Today</div>
-        <div class="card-value">{{ summary.summary.events_today }}</div>
+    <div class="health-item">
+        <span class="health-dot {% if active_monks > 0 %}dot-green{% else %}dot-yellow{% endif %}"></span>
+        <span>Monks: {{ active_monks }} active</span>
     </div>
-    <div class="card">
-        <div class="card-title">Events This Week</div>
-        <div class="card-value">{{ summary.summary.events_this_week }}</div>
+    <div class="health-item">
+        <span class="health-dot {% if pending_monks > 0 %}dot-yellow{% else %}dot-dim{% endif %}"></span>
+        <span>{{ pending_monks }} pending review</span>
     </div>
 </div>
 
-<h2>Data Storage</h2>
-<div class="card">
-    <table>
-        <thead>
-            <tr><th>Table</th><th>Records</th></tr>
-        </thead>
-        <tbody>
-            {% for table, count in summary.storage.tables.items() %}
-            <tr>
-                <td>{{ table }}</td>
-                <td>{{ "{:,}".format(count) }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="dashboard-grid">
+    <!-- Left column: key metrics -->
+    <div class="dash-col">
+        <div class="card metric-card">
+            <div class="card-title">Active Monks</div>
+            <div class="metric-row">
+                <span class="metric-big state-actionable">{{ active_monks }}</span>
+                <span class="metric-sub">paper: {{ paper_monks }} · live: {{ live_monks }}</span>
+            </div>
+        </div>
+
+        <div class="card metric-card">
+            <div class="card-title">Realized P&L</div>
+            <div class="metric-row">
+                <span class="metric-big {% if total_pnl > 0 %}state-actionable{% elif total_pnl < 0 %}state-exhausted{% endif %}">${{ "%.2f"|format(total_pnl) }}</span>
+                <span class="metric-sub">{{ total_trades }} trades</span>
+            </div>
+        </div>
+
+        <div class="card metric-card">
+            <div class="card-title">Open Positions</div>
+            <div class="metric-row">
+                <span class="metric-big">{{ open_positions }}</span>
+            </div>
+        </div>
+
+        <div class="card metric-card">
+            <div class="card-title">Viable Strategies</div>
+            <div class="metric-row">
+                <span class="metric-big" style="color: var(--accent);">{{ viable_strategies }}</span>
+                <span class="metric-sub">from {{ total_families }} families</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: pipeline & activity -->
+    <div class="dash-col">
+        <div class="card">
+            <div class="card-title">Pipeline Summary</div>
+            <div class="pipeline-row">
+                <div class="pipeline-stage">
+                    <span class="pipeline-num">{{ summary.storage.tables.get('raw_market_snapshots', 0)|int }}</span>
+                    <span class="pipeline-label">Markets</span>
+                </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-stage">
+                    <span class="pipeline-num">{{ total_families }}</span>
+                    <span class="pipeline-label">Families</span>
+                </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-stage">
+                    <span class="pipeline-num">{{ prioritized }}</span>
+                    <span class="pipeline-label">Prioritized</span>
+                </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-stage">
+                    <span class="pipeline-num">{{ viable_strategies }}</span>
+                    <span class="pipeline-label">Strategies</span>
+                </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-stage">
+                    <span class="pipeline-num">{{ active_monks }}</span>
+                    <span class="pipeline-label">Monks</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Market States</div>
+            {% if state_dist %}
+            <div class="state-bar-container">
+                {% set total_states = state_dist.values()|sum %}
+                {% for state_name in ['actionable', 'forming', 'early', 'ignore'] %}
+                {% set count = state_dist.get(state_name, 0) %}
+                {% if count > 0 %}
+                <div class="state-bar-segment state-bg-{{ state_name }}" style="width: {{ (count / total_states * 100)|int }}%;" title="{{ state_name }}: {{ count }}">
+                    {{ count }}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <div class="state-legend">
+                {% for state_name in ['actionable', 'forming', 'early', 'ignore'] %}
+                {% set count = state_dist.get(state_name, 0) %}
+                {% if count > 0 %}
+                <span class="legend-item"><span class="legend-dot state-bg-{{ state_name }}"></span>{{ state_name }} ({{ count }})</span>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="metric-sub">Run scan to see market states</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="card-title">Quick Actions</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button onclick="fetch('/api/ingest/run',{method:'POST'}).then(()=>this.textContent='Started')" class="btn btn-secondary">Run Ingest</button>
+                <button onclick="fetch('/api/pipeline/run',{method:'POST'}).then(()=>this.textContent='Started')" class="btn btn-secondary">Run Monk Scan</button>
+                <a href="/monks" class="btn btn-primary" style="text-decoration:none;">Review Monks</a>
+                <a href="/settings" class="btn btn-secondary" style="text-decoration:none;">Settings</a>
+            </div>
+        </div>
+
+        {% if recent_ingests %}
+        <div class="card">
+            <div class="card-title">Recent Ingests</div>
+            <table>
+                <tbody>
+                    {% for i in recent_ingests %}
+                    <tr>
+                        <td><span class="badge badge-{% if i.status == 'success' %}green{% else %}red{% endif %}">{{ i.status }}</span></td>
+                        <td>{{ i.ingest_type }}</td>
+                        <td>{{ "{:,}".format(i.records_count) }}</td>
+                        <td style="font-family: var(--font);">{{ i.started_at.strftime('%m/%d %H:%M') if i.started_at else '?' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
-<h2>Quick Actions</h2>
-<div class="grid grid-3">
-    <a href="/distill" class="card" style="text-decoration: none;">
-        <div class="card-title">Distillation</div>
-        <div style="color: var(--text-dim); font-size: 13px;">View scored families</div>
-    </a>
-    <a href="/scan" class="card" style="text-decoration: none;">
-        <div class="card-title">Market Scan</div>
-        <div style="color: var(--text-dim); font-size: 13px;">Current state classifications</div>
-    </a>
-    <a href="/candidates" class="card" style="text-decoration: none;">
-        <div class="card-title">Candidates</div>
-        <div style="color: var(--text-dim); font-size: 13px;">Monk-worthy patterns</div>
-    </a>
-</div>
 {% endblock %}

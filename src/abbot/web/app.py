@@ -43,10 +43,66 @@ templates = Jinja2Templates(directory=_base / "templates")
 async def overview(request: Request):
     """Main overview dashboard."""
     from abbot.monitor.performance import generate_daily_summary
+    from sqlalchemy import select, func
+    from sqlalchemy.orm import Session
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig, MonkTrade
+    from abbot.db.models.raw import IngestLog
 
     summary = generate_daily_summary()
+    engine = get_engine()
+
+    with Session(engine) as session:
+        # Monk counts
+        all_configs = session.execute(select(StoredMonkConfig)).scalars().all()
+        active = [c for c in all_configs if c.lifecycle_status in ("paper", "probation", "live", "scaled") and c.approval_status == "approved"]
+        pending = [c for c in all_configs if c.approval_status == "pending"]
+        paper = sum(1 for c in active if c.lifecycle_status == "paper")
+        live = sum(1 for c in active if c.lifecycle_status in ("live", "scaled"))
+
+        # Viable strategies (configs with blueprint)
+        viable = sum(1 for c in all_configs if c.strategy_blueprint and c.strategy_blueprint.get("viable"))
+
+        # Trade stats
+        total_pnl = session.execute(
+            select(func.coalesce(func.sum(MonkTrade.pnl), 0))
+            .where(MonkTrade.status == "closed")
+        ).scalar() or 0
+        total_trades = session.execute(
+            select(func.count()).select_from(MonkTrade)
+        ).scalar() or 0
+        open_positions = session.execute(
+            select(func.count()).select_from(MonkTrade).where(MonkTrade.status == "open")
+        ).scalar() or 0
+
+        # Recent ingests
+        recent_ingests = session.execute(
+            select(IngestLog).order_by(IngestLog.started_at.desc()).limit(5)
+        ).scalars().all()
+
+    # State distribution — skip on overview (too expensive), show placeholder
+    state_dist = {}
+
+    # Family counts from DB (fast)
+    from sqlalchemy import text as sql_text
+    with Session(engine) as session:
+        total_families = session.execute(sql_text("SELECT count(*) FROM raw_series_snapshots")).scalar() or 0
+    prioritized = viable  # Approximation for overview
+
     return templates.TemplateResponse(request, "overview.html", {
         "summary": summary,
+        "active_monks": len(active),
+        "pending_monks": len(pending),
+        "paper_monks": paper,
+        "live_monks": live,
+        "viable_strategies": viable,
+        "total_pnl": float(total_pnl),
+        "total_trades": total_trades,
+        "open_positions": open_positions,
+        "total_families": total_families,
+        "prioritized": prioritized,
+        "state_dist": state_dist,
+        "recent_ingests": recent_ingests,
     })
 
 
