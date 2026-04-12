@@ -74,7 +74,7 @@
             </div>
             <div class="monk-stat">
                 <span class="monk-stat-label">p-value</span>
-                <span class="monk-stat-value">{{ "%.3f"|format(conf.get('p_value', 1)) }}</span>
+                <span class="monk-stat-value">{% if conf.get('p_value', 1) < 0.001 %}&lt; 0.001{% else %}{{ "%.3f"|format(conf.get('p_value', 1)) }}{% endif %}</span>
             </div>
         </div>
         <div class="monk-evidence">

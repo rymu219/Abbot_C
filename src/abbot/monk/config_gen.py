@@ -285,10 +285,11 @@ def _generate_rationale(candidate: MonkCandidate, blueprint=None) -> str:
             f"{'below' if blueprint.recommended_side == 'yes' else 'above'} "
             f"${blueprint.optimal_entry:.2f}."
         )
+        p_str = "< 0.001" if blueprint.statistical_significance < 0.001 else f"{blueprint.statistical_significance:.3f}"
         parts.append(
             f"Train WR: {blueprint.train_win_rate*100:.1f}%, "
             f"Test WR: {blueprint.test_win_rate*100:.1f}%, "
-            f"p={blueprint.statistical_significance:.3f}."
+            f"p={p_str}."
         )
     else:
         parts.append("Template-based config (no strategy mined).")
