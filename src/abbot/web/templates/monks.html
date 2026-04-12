@@ -115,6 +115,12 @@
     </div>
     {% endif %}
 
+    {% if not c.strategy_blueprint and c.lifecycle_status in ['paper','live','probation','scaled'] %}
+    <div style="padding: 8px 16px; background: rgba(248,81,73,0.08); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--yellow);">
+        ⚠ Template-based strategy (no data-mined edge). Consider killing and replacing with a mined Monk.
+    </div>
+    {% endif %}
+
     <div class="monk-actions">
         {% if c.approval_status == 'pending' %}
         <button onclick="fetch('/api/monk/approve/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-primary btn-sm">Approve for Paper</button>
@@ -124,6 +130,8 @@
         <button onclick="fetch('/api/monk/kill/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-danger btn-sm">Kill</button>
         {% elif c.lifecycle_status == 'paused' %}
         <button onclick="fetch('/api/monk/approve/{{ c.id }}',{method:'POST'}).then(()=>location.reload())" class="btn btn-primary btn-sm">Resume</button>
+        {% elif c.lifecycle_status == 'retired' %}
+        <span style="font-size: 12px; color: var(--text-dim); padding: 0 16px;">Retired</span>
         {% endif %}
     </div>
 </div>

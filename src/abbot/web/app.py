@@ -190,24 +190,41 @@ async def activity_page(request: Request):
 
 @app.get("/scan", response_class=HTMLResponse)
 async def scan_page(request: Request):
-    """Current market scan results."""
+    """Current market scan results with state filtering."""
     from abbot.pipeline.features import compute_features
     from abbot.pipeline.state import classify_all
+
+    state_filter = request.query_params.get("state")
 
     features = compute_features()
     states = classify_all(features)
 
-    non_ignore = [s for s in states if s.state.value != "ignore"]
-    non_ignore.sort(key=lambda s: s.score, reverse=True)
+    # Build features lookup for the template
+    features_map = {
+        f.ticker: {"volume": f.volume, "last_price": f.last_price, "spread": f.spread}
+        for f in features
+    }
 
     dist = {}
     for s in states:
         dist[s.state.value] = dist.get(s.state.value, 0) + 1
 
+    # Apply filter
+    if state_filter == "all":
+        filtered = states
+    elif state_filter:
+        filtered = [s for s in states if s.state.value == state_filter]
+    else:
+        filtered = [s for s in states if s.state.value != "ignore"]
+
+    filtered.sort(key=lambda s: s.score, reverse=True)
+
     return templates.TemplateResponse(request, "scan.html", {
-        "states": non_ignore[:50],
+        "states": filtered[:100],
         "distribution": dist,
         "total": len(states),
+        "state_filter": state_filter,
+        "features_map": features_map,
     })
 
 

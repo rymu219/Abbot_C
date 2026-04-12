@@ -4,22 +4,73 @@
 <h1>Market Scan</h1>
 
 <div class="grid grid-4">
-    {% for state_name in ['actionable', 'forming', 'early', 'ignore'] %}
-    <div class="card">
-        <div class="card-title">{{ state_name }}</div>
-        <div class="card-value state-{{ state_name }}">{{ distribution.get(state_name, 0) }}</div>
+    <div class="card metric-card">
+        <div class="card-title">Actionable</div>
+        <div class="metric-big state-actionable">{{ distribution.get('actionable', 0) }}</div>
     </div>
-    {% endfor %}
+    <div class="card metric-card">
+        <div class="card-title">Forming</div>
+        <div class="metric-big state-forming">{{ distribution.get('forming', 0) }}</div>
+    </div>
+    <div class="card metric-card">
+        <div class="card-title">Early</div>
+        <div class="metric-big state-early">{{ distribution.get('early', 0) }}</div>
+    </div>
+    <div class="card metric-card">
+        <div class="card-title">Total Scanned</div>
+        <div class="metric-big">{{ total }}</div>
+    </div>
 </div>
 
-<p style="color: var(--text-dim); font-size: 13px; margin: 12px 0;">{{ total }} total markets scanned</p>
+<!-- State distribution bar -->
+{% if distribution %}
+<div class="card" style="margin: 12px 0;">
+    <div class="state-bar-container">
+        {% set total_states = distribution.values()|sum %}
+        {% for state_name in ['actionable', 'forming', 'early', 'ignore'] %}
+        {% set count = distribution.get(state_name, 0) %}
+        {% if count > 0 and total_states > 0 %}
+        <div class="state-bar-segment state-bg-{{ state_name }}" style="width: {{ (count / total_states * 100)|round|int }}%;" title="{{ state_name }}: {{ count }}">
+            {% if (count / total_states * 100) > 3 %}{{ count }}{% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="state-legend">
+        {% for state_name in ['actionable', 'forming', 'early', 'ignore'] %}
+        {% set count = distribution.get(state_name, 0) %}
+        {% if count > 0 %}
+        <span class="legend-item"><span class="legend-dot state-bg-{{ state_name }}"></span>{{ state_name }} ({{ count }})</span>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Filter tabs by state -->
+<div class="filter-tabs">
+    <a href="/scan" class="filter-tab {% if not state_filter %}active{% endif %}">Non-Ignore</a>
+    <a href="/scan?state=actionable" class="filter-tab {% if state_filter == 'actionable' %}active{% endif %}">Actionable</a>
+    <a href="/scan?state=forming" class="filter-tab {% if state_filter == 'forming' %}active{% endif %}">Forming</a>
+    <a href="/scan?state=early" class="filter-tab {% if state_filter == 'early' %}active{% endif %}">Early</a>
+    <a href="/scan?state=all" class="filter-tab {% if state_filter == 'all' %}active{% endif %}">All</a>
+</div>
 
 {% if states %}
-<h2>Non-IGNORE Markets</h2>
 <div class="card">
     <table>
         <thead>
-            <tr><th>Score</th><th>State</th><th>Confidence</th><th>Ticker</th><th>Reasons</th></tr>
+            <tr>
+                <th>Score</th>
+                <th>State</th>
+                <th>Conf</th>
+                <th>Ticker</th>
+                <th>Family</th>
+                <th>Volume</th>
+                <th>Price</th>
+                <th>Spread</th>
+                <th>Reasons</th>
+            </tr>
         </thead>
         <tbody>
             {% for s in states %}
@@ -27,8 +78,12 @@
                 <td>{{ "%.2f"|format(s.score) }}</td>
                 <td><span class="badge badge-{% if s.state.value == 'actionable' %}green{% elif s.state.value == 'forming' %}blue{% elif s.state.value == 'early' %}yellow{% else %}dim{% endif %}">{{ s.state.value }}</span></td>
                 <td>{{ "%.0f"|format(s.confidence * 100) }}%</td>
-                <td>{{ s.ticker[:45] }}</td>
-                <td style="font-family: var(--font); font-size: 11px; color: var(--text-dim);">{{ s.reason_codes[:3]|join(', ') }}</td>
+                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ s.ticker[:40] }}</td>
+                <td>{{ s.series_ticker or '-' }}</td>
+                <td>{{ "{:,.0f}".format(features_map.get(s.ticker, {}).get('volume', 0)) if features_map.get(s.ticker) else '-' }}</td>
+                <td>{{ "$%.2f"|format(features_map.get(s.ticker, {}).get('last_price', 0)) if features_map.get(s.ticker) else '-' }}</td>
+                <td>{{ "$%.3f"|format(features_map.get(s.ticker, {}).get('spread', 0)) if features_map.get(s.ticker) else '-' }}</td>
+                <td style="font-family: var(--font); font-size: 11px; color: var(--text-dim); max-width: 200px; overflow: hidden;">{{ s.reason_codes[:3]|join(', ') }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -36,7 +91,7 @@
 </div>
 {% else %}
 <div class="card" style="text-align: center; padding: 32px; color: var(--text-dim);">
-    No non-IGNORE markets found. Trends need history — wait for a few ingest cycles.
+    No markets match this filter. Try a different state or run an ingest to bring in fresh data.
 </div>
 {% endif %}
 {% endblock %}
