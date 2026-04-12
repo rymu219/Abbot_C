@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Settings{% endblock %}
+{% block content %}
+<h1>Scoring Configuration</h1>
+
+<form action="/api/scoring/update" method="POST" style="max-width: 600px;">
+    <h2>Family Worthiness Weights</h2>
+    <div class="card">
+        {% for key, val in scoring.family_worthiness.as_dict().items() %}
+        <div style="margin-bottom: 16px;">
+            <label style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-dim); margin-bottom: 4px;">
+                <span>{{ key.replace('_', ' ').title() }}</span>
+                <span id="fw_{{ key }}_val">{{ "%.2f"|format(val) }}</span>
+            </label>
+            <input type="range" name="fw_{{ key }}" min="0" max="1" step="0.05" value="{{ val }}"
+                   oninput="document.getElementById('fw_{{ key }}_val').textContent=parseFloat(this.value).toFixed(2)"
+                   style="width: 100%; accent-color: var(--accent);">
+        </div>
+        {% endfor %}
+    </div>
+
+    <h2>Family Thresholds</h2>
+    <div class="card">
+        <div style="margin-bottom: 16px;">
+            <label style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-dim); margin-bottom: 4px;">
+                <span>Ignore Below</span>
+                <span id="ft_ignore_val">{{ "%.2f"|format(scoring.family_thresholds.ignore_below) }}</span>
+            </label>
+            <input type="range" name="ft_ignore_below" min="0" max="1" step="0.05"
+                   value="{{ scoring.family_thresholds.ignore_below }}"
+                   oninput="document.getElementById('ft_ignore_val').textContent=parseFloat(this.value).toFixed(2)"
+                   style="width: 100%; accent-color: var(--yellow);">
+        </div>
+        <div style="margin-bottom: 16px;">
+            <label style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-dim); margin-bottom: 4px;">
+                <span>Prioritize Above</span>
+                <span id="ft_prio_val">{{ "%.2f"|format(scoring.family_thresholds.prioritize_above) }}</span>
+            </label>
+            <input type="range" name="ft_prioritize_above" min="0" max="1" step="0.05"
+                   value="{{ scoring.family_thresholds.prioritize_above }}"
+                   oninput="document.getElementById('ft_prio_val').textContent=parseFloat(this.value).toFixed(2)"
+                   style="width: 100%; accent-color: var(--green);">
+        </div>
+    </div>
+
+    <button type="submit"
+            style="background: var(--accent); color: #fff; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 12px;">
+        Save Configuration
+    </button>
+    <div id="save-result" style="display: inline-block; margin-left: 12px;"></div>
+</form>
+
+<script>
+document.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const resp = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+    const html = await resp.text();
+    document.getElementById('save-result').innerHTML = html;
+    setTimeout(() => document.getElementById('save-result').innerHTML = '', 3000);
+});
+</script>
+{% endblock %}

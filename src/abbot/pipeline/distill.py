@@ -151,14 +151,9 @@ def score_family(family: DistilledFamily, weights: dict | None = None) -> None:
     Modifies the family in place.
     """
     if weights is None:
-        weights = {
-            "repeatability": 0.25,
-            "cadence": 0.15,
-            "liquidity": 0.20,
-            "spread": 0.15,
-            "clarity": 0.10,
-            "automation": 0.15,
-        }
+        from abbot.config import get_scoring_config
+        sc = get_scoring_config()
+        weights = sc.family_worthiness.as_dict()
 
     # Repeatability: based on event count (more events = more recurring)
     if family.event_count >= 20:
@@ -226,19 +221,27 @@ def score_family(family: DistilledFamily, weights: dict | None = None) -> None:
         + weights["liquidity"] * family.liquidity_score
         + weights["spread"] * family.spread_score
         + weights["clarity"] * family.clarity_score
-        + weights["automation"] * family.automation_score
+        + weights.get("automation_fit", weights.get("automation", 0.15)) * family.automation_score
     )
 
 
 def assign_decision(
     family: DistilledFamily,
-    ignore_below: float = 0.2,
-    prioritize_above: float = 0.5,
+    ignore_below: float | None = None,
+    prioritize_above: float | None = None,
 ) -> None:
     """Assign a family decision based on composite score.
 
     Modifies the family in place.
     """
+    if ignore_below is None or prioritize_above is None:
+        from abbot.config import get_scoring_config
+        sc = get_scoring_config()
+        if ignore_below is None:
+            ignore_below = sc.family_thresholds.ignore_below
+        if prioritize_above is None:
+            prioritize_above = sc.family_thresholds.prioritize_above
+
     family.reason_codes = []
 
     # Hard filters: one-off series are always ignored

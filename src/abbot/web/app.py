@@ -16,6 +16,20 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Abbot", docs_url=None, redoc_url=None)
 
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the background scheduler when the web app launches."""
+    from abbot.scheduler.jobs import start_scheduler
+    start_scheduler()
+    logger.info("Abbot started with background scheduler")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    from abbot.scheduler.jobs import stop_scheduler
+    stop_scheduler()
+
 # Static files and templates
 _base = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=_base / "static"), name="static")
@@ -126,3 +140,98 @@ async def scan_page(request: Request):
         "distribution": dist,
         "total": len(states),
     })
+
+
+# --- Monks page ---
+
+
+@app.get("/monks", response_class=HTMLResponse)
+async def monks_page(request: Request):
+    """Monk management: configs, positions, and performance."""
+    from sqlalchemy import select, func
+    from sqlalchemy.orm import Session
+    from abbot.db.engine import get_engine
+    from abbot.db.models.pipeline import StoredMonkConfig, MonkTrade
+
+    engine = get_engine()
+    with Session(engine) as session:
+        configs = session.execute(
+            select(StoredMonkConfig).order_by(StoredMonkConfig.created_at.desc())
+        ).scalars().all()
+
+        trades = session.execute(
+            select(MonkTrade).order_by(MonkTrade.opened_at.desc()).limit(50)
+        ).scalars().all()
+
+        # Aggregate P&L per monk
+        pnl_by_monk = dict(session.execute(
+            select(MonkTrade.monk_name, func.sum(MonkTrade.pnl))
+            .where(MonkTrade.status == "closed")
+            .group_by(MonkTrade.monk_name)
+        ).fetchall())
+
+    return templates.TemplateResponse(request, "monks.html", {
+        "configs": configs,
+        "trades": trades,
+        "pnl_by_monk": pnl_by_monk,
+    })
+
+
+# --- Settings page ---
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """Scoring configuration."""
+    from abbot.config import get_scoring_config
+    config = get_scoring_config(reload=True)
+    return templates.TemplateResponse(request, "settings.html", {
+        "scoring": config,
+    })
+
+
+# --- API endpoints for interactive controls ---
+
+
+@app.post("/api/ingest/run")
+async def api_ingest_run(request: Request):
+    """Trigger a focused ingest cycle."""
+    from abbot.scheduler.jobs import _run_focused_ingest
+    import threading
+    threading.Thread(target=_run_focused_ingest, daemon=True).start()
+    return HTMLResponse('<div class="badge badge-green">Ingest started</div>')
+
+
+@app.post("/api/pipeline/run")
+async def api_pipeline_run(request: Request):
+    """Trigger a full pipeline run."""
+    from abbot.scheduler.jobs import _run_monks
+    import threading
+    threading.Thread(target=_run_monks, daemon=True).start()
+    return HTMLResponse('<div class="badge badge-green">Monk scan started</div>')
+
+
+@app.post("/api/scoring/update")
+async def api_scoring_update(request: Request):
+    """Update scoring weights from form data."""
+    from abbot.config import get_scoring_config, save_scoring_config, ScoringConfig
+
+    form = await request.form()
+    current = get_scoring_config(reload=True)
+
+    # Update weights from form
+    fw = current.family_worthiness.model_dump()
+    for key in fw:
+        val = form.get(f"fw_{key}")
+        if val:
+            fw[key] = float(val)
+    current.family_worthiness = type(current.family_worthiness)(**fw)
+
+    # Update thresholds
+    for key in ["ignore_below", "prioritize_above"]:
+        val = form.get(f"ft_{key}")
+        if val:
+            setattr(current.family_thresholds, key, float(val))
+
+    save_scoring_config(current)
+    return HTMLResponse('<div class="badge badge-green">Scoring config saved</div>')

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Abbot — Monks{% endblock %}
+{% block content %}
+<h1>Monk Lab</h1>
+
+<div class="grid grid-3">
+    <div class="card">
+        <div class="card-title">Active Monks</div>
+        <div class="card-value" style="color: var(--green);">{{ configs|selectattr('lifecycle_status', 'in', ['paper','probation','live','scaled'])|list|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Open Positions</div>
+        <div class="card-value">{{ trades|selectattr('status', 'equalto', 'open')|list|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Total Realized P&L</div>
+        <div class="card-value {% if pnl_by_monk.values()|sum > 0 %}state-actionable{% elif pnl_by_monk.values()|sum < 0 %}state-exhausted{% endif %}">
+            ${{ "%.2f"|format(pnl_by_monk.values()|sum) if pnl_by_monk else "0.00" }}
+        </div>
+    </div>
+</div>
+
+<div style="margin: 12px 0;">
+    <button onclick="fetch('/api/pipeline/run',{method:'POST'}).then(()=>location.reload())" style="background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">Run Monk Scan</button>
+    <button onclick="fetch('/api/ingest/run',{method:'POST'}).then(()=>{})" style="background: var(--border); color: var(--text); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: 8px;">Run Ingest</button>
+</div>
+
+{% if configs %}
+<h2>Deployed Monks</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Family</th><th>Status</th><th>Mode</th><th>Approval</th><th>P&L</th><th>Since</th></tr>
+        </thead>
+        <tbody>
+            {% for c in configs %}
+            <tr>
+                <td style="font-family: var(--font);">{{ c.name }}</td>
+                <td>{{ c.family_id }}</td>
+                <td><span class="badge badge-{% if c.lifecycle_status in ['live','scaled'] %}green{% elif c.lifecycle_status == 'paper' %}blue{% elif c.lifecycle_status == 'paused' %}yellow{% else %}dim{% endif %}">{{ c.lifecycle_status }}</span></td>
+                <td>{{ c.deployment_mode }}</td>
+                <td><span class="badge badge-{% if c.approval_status == 'approved' %}green{% elif c.approval_status == 'rejected' %}red{% else %}dim{% endif %}">{{ c.approval_status }}</span></td>
+                <td style="{% if pnl_by_monk.get(c.name, 0) > 0 %}color: var(--green){% elif pnl_by_monk.get(c.name, 0) < 0 %}color: var(--red){% endif %}">
+                    ${{ "%.2f"|format(pnl_by_monk.get(c.name, 0)) }}
+                </td>
+                <td style="font-family: var(--font);">{{ c.created_at.strftime('%m/%d %H:%M') if c.created_at else '?' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if trades %}
+<h2>Recent Trades</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr><th>Monk</th><th>Side</th><th>Entry</th><th>P&L</th><th>Status</th><th>Ticker</th><th>Time</th></tr>
+        </thead>
+        <tbody>
+            {% for t in trades %}
+            <tr>
+                <td style="font-family: var(--font);">{{ t.monk_name[:25] }}</td>
+                <td><span class="badge badge-{% if t.side == 'yes' %}green{% else %}red{% endif %}">{{ t.side }}</span></td>
+                <td>${{ "%.2f"|format(t.entry_price) }}</td>
+                <td style="{% if t.pnl and t.pnl > 0 %}color: var(--green){% elif t.pnl and t.pnl < 0 %}color: var(--red){% endif %}">
+                    {{ ("$%.2f"|format(t.pnl)) if t.pnl is not none else '-' }}
+                </td>
+                <td><span class="badge badge-{% if t.status == 'open' %}blue{% elif t.status == 'closed' %}dim{% else %}yellow{% endif %}">{{ t.status }}{% if t.is_paper %} [P]{% endif %}</span></td>
+                <td>{{ t.ticker[:35] }}</td>
+                <td style="font-family: var(--font);">{{ t.opened_at.strftime('%m/%d %H:%M') if t.opened_at else '?' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}
