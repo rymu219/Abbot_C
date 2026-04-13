@@ -1,0 +1,54 @@
+[
+    {
+        "home_team": "Cleveland Guardians",
+        "away_team": "Toronto Blue Jays",
+        "commence_time": "2023-08-10T17:10:00Z",
+        "recommendation": {
+            "team": "Toronto Blue Jays",
+            "price": -140,
+            "bookmaker": "Barstool Sportsbook",
+            "predicted_win_pct": 0.5602001630763561,
+            "expected_profit": -78.42802283068986,
+            "expected_value": -0.039656863297675204
+        }
+    },
+    {
+        "home_team": "Detroit Tigers",
+        "away_team": "Minnesota Twins",
+        "commence_time": "2023-08-10T17:10:00Z",
+        "recommendation": {
+            "team": "Minnesota Twins",
+            "price": -162,
+            "bookmaker": "DraftKings",
+            "predicted_win_pct": 0.5279242944317319,
+            "expected_profit": -85.52373569794058,
+            "expected_value": -0.14619651147460638
+        }
+    },
+    {
+        "home_team": "Philadelphia Phillies",
+        "away_team": "Washington Nationals",
+        "commence_time": "2023-08-10T22:40:00Z",
+        "recommendation": {
+            "team": "Philadelphia Phillies",
+            "price": -250,
+            "bookmaker": "Barstool Sportsbook",
+            "predicted_win_pct": 0.5470343906993858,
+            "expected_profit": -136.75859767484644,
+            "expected_value": -0.23415185302085995
+        }
+    },
+    {
+        "home_team": "Boston Red Sox",
+        "away_team": "Kansas City Royals",
+        "commence_time": "2023-08-10T23:10:00Z",
+        "recommendation": {
+            "team": "Boston Red Sox",
+            "price": -250,
+            "bookmaker": "DraftKings",
+            "predicted_win_pct": 0.5164776361819093,
+            "expected_profit": -129.11940904547734,
+            "expected_value": -0.27693130934532695
+        }
+    }
+]
