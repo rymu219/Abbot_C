@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Abbot-C v0 — UI Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --bg-surface: #14171c;
+    --bg-surface-2: #1b1f26;
+    --border: #262b34;
+    --border-soft: #1e232b;
+    --text: #eee4cf;
+    --text-dim: #9a9184;
+    --text-faint: #5f5a51;
+    --accent: #e8a33d;
+    --win: #7fb069;
+    --loss: #c24d3f;
+    --void: #6a7380;
+    --grid: #1e2229;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Instrument Sans', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    font-feature-settings: 'ss01', 'ss02';
+  }
+  body {
+    background-image:
+      radial-gradient(ellipse 80% 40% at 50% 0%, rgba(232,163,61,0.05), transparent 60%),
+      radial-gradient(ellipse 60% 30% at 50% 100%, rgba(232,163,61,0.03), transparent);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 32px 80px; }
+
+  /* ======= Header ======= */
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+    position: relative;
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .brand-mark {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 44px;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+    color: var(--text);
+  }
+  .brand-mark .dash { color: var(--accent); }
+  .brand-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .tagline {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--text-dim);
+    font-weight: 500;
+    text-align: right;
+    max-width: 340px;
+    line-height: 1.35;
+  }
+  .tagline em { color: var(--accent); font-style: italic; }
+
+  /* ======= Callout annotations ======= */
+  .cx {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0d0f12;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    vertical-align: middle;
+    margin-left: 8px;
+    cursor: help;
+  }
+
+  /* ======= Section headers ======= */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::before {
+    content: '';
+    width: 8px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  /* ======= Summary ======= */
+  .summary {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 56px;
+  }
+  .stat {
+    background: var(--bg-surface);
+    padding: 28px 24px 24px;
+    position: relative;
+  }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-faint);
+    margin-bottom: 12px;
+  }
+  .stat-value {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144;
+    font-weight: 500;
+    font-size: 46px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .stat-value.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 36px;
+  }
+  .stat-value.pos { color: var(--win); }
+  .stat-value.neg { color: var(--loss); }
+  .stat-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  /* ======= Equity curve ======= */
+  .curve-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 28px 24px 20px;
+    margin-bottom: 56px;
+  }
+  .curve-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+  }
+  .curve-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+  .curve-current {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .curve-current .val {
+    color: var(--win);
+    font-weight: 700;
+    font-size: 15px;
+  }
+  svg.equity { width: 100%; height: 220px; display: block; }
+
+  /* ======= Detail list ======= */
+  .detail {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+  }
+  .detail-head {
+    display: grid;
+    grid-template-columns: 110px 1fr 120px 90px 80px 110px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-faint);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 110px 1fr 120px 90px 80px 110px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border-soft);
+    align-items: center;
+    transition: background 0.15s;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--bg-surface-2); }
+
+  .r-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .matchup {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .vs {
+    color: var(--text-faint);
+    font-style: italic;
+    margin: 0 4px;
+    font-size: 13px;
+  }
+  .picked {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .score .winner { color: var(--text); font-weight: 700; }
+  .r-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .outcome {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+  }
+  .outcome.win { color: var(--win); }
+  .outcome.loss { color: var(--loss); }
+  .outcome.pending { color: var(--text-faint); }
+  .r-pnl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: right;
+  }
+  .r-pnl.pos { color: var(--win); }
+  .r-pnl.neg { color: var(--loss); }
+  .r-pnl.pending { color: var(--text-faint); }
+
+  /* Team color swatches (unofficial, abstracted) */
+  .t-nyy { background: #0a1f3d; color: #e8e1d3; }
+  .t-bos { background: #b82030; color: #f5ecd5; }
+  .t-lad { background: #143b66; color: #f5ecd5; }
+  .t-sfg { background: #c25a2a; color: #181613; }
+  .t-atl { background: #8a1a2e; color: #f5ecd5; }
+  .t-nym { background: #1a4a96; color: #f0a33d; }
+  .t-hou { background: #1a2e47; color: #c25a2a; }
+  .t-tex { background: #0e3a6e; color: #c23040; }
+  .t-phi { background: #a12030; color: #f5ecd5; }
+  .t-sdp { background: #6b4a20; color: #f5ecd5; }
+  .t-chc { background: #0c2447; color: #c23040; }
+  .t-mil { background: #0f2a4a; color: #b89a5e; }
+
+  /* ======= Annotation sidebar ======= */
+  .annotations {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+  }
+  .ann-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 26px;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .ann-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 28px;
+  }
+  .ann-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 48px;
+  }
+  .ann {
+    display: flex;
+    gap: 14px;
+  }
+  .ann-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0d0f12;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ann-body h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 16px;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .ann-body p {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+  .ann-body code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--bg-surface);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Masthead -->
+  <div class="masthead">
+    <div class="brand">
+      <div class="brand-mark">ABBOT<span class="dash">—</span>C</div>
+      <div class="brand-meta">v0 · The Calculator</div>
+    </div>
+    <div class="tagline">
+      One bot. One rule. <em>Take YES on the MLB moneyline favorite.</em> $10 flat, T-30 minutes, paper.
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="section-label">Summary<span class="cx">1</span></div>
+  <div class="summary">
+    <div class="stat">
+      <div class="stat-label">Record</div>
+      <div class="stat-value">47&thinsp;–&thinsp;39</div>
+      <div class="stat-sub">86 settled · 2 void</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total PnL</div>
+      <div class="stat-value mono pos">+$48.22</div>
+      <div class="stat-sub">of $860 staked</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">ROI</div>
+      <div class="stat-value mono pos">+5.6%</div>
+      <div class="stat-sub">since Mar 28</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Hit Rate</div>
+      <div class="stat-value mono">54.7%</div>
+      <div class="stat-sub">implied 58.1%</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Today</div>
+      <div class="stat-value mono">11</div>
+      <div class="stat-sub">bets pending</div>
+    </div>
+  </div>
+
+  <!-- Equity curve -->
+  <div class="section-label">Equity Curve<span class="cx">2</span></div>
+  <div class="curve-card">
+    <div class="curve-header">
+      <div class="curve-title">Running PnL</div>
+      <div class="curve-current">current · <span class="val">+$48.22</span></div>
+    </div>
+    <svg class="equity" viewBox="0 0 1100 220" preserveAspectRatio="none">
+      <!-- grid -->
+      <line x1="0" y1="20"  x2="1100" y2="20"  stroke="#1e2229" stroke-width="1"/>
+      <line x1="0" y1="70"  x2="1100" y2="70"  stroke="#1e2229" stroke-width="1"/>
+      <line x1="0" y1="120" x2="1100" y2="120" stroke="#2d3340" stroke-width="1" stroke-dasharray="2 4"/>
+      <line x1="0" y1="170" x2="1100" y2="170" stroke="#1e2229" stroke-width="1"/>
+      <line x1="0" y1="210" x2="1100" y2="210" stroke="#1e2229" stroke-width="1"/>
+      <!-- zero label -->
+      <text x="10" y="116" fill="#5f5a51" font-family="JetBrains Mono" font-size="10">$0</text>
+      <text x="10" y="66"  fill="#5f5a51" font-family="JetBrains Mono" font-size="10">+$50</text>
+      <text x="10" y="166" fill="#5f5a51" font-family="JetBrains Mono" font-size="10">-$50</text>
+      <!-- curve -->
+      <path d="M 50,120 L 90,112 L 130,128 L 170,118 L 210,108 L 250,124 L 290,114 L 330,96 L 370,106 L 410,88 L 450,102 L 490,94 L 530,80 L 570,96 L 610,78 L 650,66 L 690,82 L 730,72 L 770,86 L 810,74 L 850,60 L 890,72 L 930,58 L 970,68 L 1010,52 L 1050,64"
+            fill="none" stroke="#e8a33d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- fill under curve -->
+      <path d="M 50,120 L 90,112 L 130,128 L 170,118 L 210,108 L 250,124 L 290,114 L 330,96 L 370,106 L 410,88 L 450,102 L 490,94 L 530,80 L 570,96 L 610,78 L 650,66 L 690,82 L 730,72 L 770,86 L 810,74 L 850,60 L 890,72 L 930,58 L 970,68 L 1010,52 L 1050,64 L 1050,120 L 50,120 Z"
+            fill="url(#fade)" opacity="0.35"/>
+      <defs>
+        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e8a33d" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#e8a33d" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- x-axis labels -->
+      <text x="50"   y="218" fill="#5f5a51" font-family="JetBrains Mono" font-size="9">MAR 28</text>
+      <text x="400"  y="218" fill="#5f5a51" font-family="JetBrains Mono" font-size="9">APR 04</text>
+      <text x="750"  y="218" fill="#5f5a51" font-family="JetBrains Mono" font-size="9">APR 10</text>
+      <text x="1015" y="218" fill="#5f5a51" font-family="JetBrains Mono" font-size="9">APR 13</text>
+    </svg>
+  </div>
+
+  <!-- Detail list -->
+  <div class="section-label">Bet Ledger<span class="cx">3</span></div>
+  <div class="detail">
+    <div class="detail-head">
+      <div>Date</div>
+      <div>Matchup · Pick<span class="cx">4</span></div>
+      <div>Score</div>
+      <div>Entry<span class="cx">5</span></div>
+      <div>Result</div>
+      <div style="text-align:right">PnL</div>
+    </div>
+
+    <div class="row">
+      <div class="r-date">Apr 13 · 7:05 PM</div>
+      <div class="matchup">
+        <span class="logo t-nyy">NYY</span>
+        <span class="vs">vs</span>
+        <span class="logo t-bos">BOS</span>
+        <span class="picked">· NYY</span>
+      </div>
+      <div class="score">—</div>
+      <div class="r-price">64¢</div>
+      <div class="outcome pending">Pending</div>
+      <div class="r-pnl pending">—</div>
+    </div>
+
+    <div class="row">
+      <div class="r-date">Apr 12 · 10:10 PM</div>
+      <div class="matchup">
+        <span class="logo t-lad">LAD</span>
+        <span class="vs">vs</span>
+        <span class="logo t-sfg">SFG</span>
+        <span class="picked">· LAD</span>
+      </div>
+      <div class="score"><span class="winner">LAD 6</span> – SFG 2</div>
+      <div class="r-price">71¢</div>
+      <div class="outcome win">Win</div>
+      <div class="r-pnl pos">+$4.08</div>
+    </div>
+
+    <div class="row">
+      <div class="r-date">Apr 12 · 7:20 PM</div>
+      <div class="matchup">
+        <span class="logo t-atl">ATL</span>
+        <span class="vs">vs</span>
+        <span class="logo t-nym">NYM</span>
+        <span class="picked">· ATL</span>
+      </div>
+      <div class="score">ATL 3 – <span class="winner">NYM 5</span></div>
+      <div class="r-price">58¢</div>
+      <div class="outcome loss">Loss</div>
+      <div class="r-pnl neg">–$10.00</div>
+    </div>
+
+    <div class="row">
+      <div class="r-date">Apr 12 · 8:05 PM</div>
+      <div class="matchup">
+        <span class="logo t-hou">HOU</span>
+        <span class="vs">vs</span>
+        <span class="logo t-tex">TEX</span>
+        <span class="picked">· HOU</span>
+      </div>
+      <div class="score"><span class="winner">HOU 7</span> – TEX 4</div>
+      <div class="r-price">55¢</div>
+      <div class="outcome win">Win</div>
+      <div class="r-pnl pos">+$8.18</div>
+    </div>
+
+    <div class="row">
+      <div class="r-date">Apr 11 · 7:05 PM</div>
+      <div class="matchup">
+        <span class="logo t-phi">PHI</span>
+        <span class="vs">vs</span>
+        <span class="logo t-sdp">SDP</span>
+        <span class="picked">· PHI</span>
+      </div>
+      <div class="score"><span class="winner">PHI 4</span> – SDP 1</div>
+      <div class="r-price">62¢</div>
+      <div class="outcome win">Win</div>
+      <div class="r-pnl pos">+$6.13</div>
+    </div>
+
+    <div class="row">
+      <div class="r-date">Apr 11 · 8:05 PM</div>
+      <div class="matchup">
+        <span class="logo t-chc">CHC</span>
+        <span class="vs">vs</span>
+        <span class="logo t-mil">MIL</span>
+        <span class="picked">· MIL</span>
+      </div>
+      <div class="score">CHC 6 – <span class="winner">MIL 2</span></div>
+      <div class="r-price">53¢</div>
+      <div class="outcome win">Win</div>
+      <div class="r-pnl pos">+$8.87</div>
+    </div>
+
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotations">
+    <div class="ann-title">Annotations</div>
+    <div class="ann-sub">Notes on each element · read alongside the data dictionary</div>
+
+    <div class="ann-grid">
+      <div class="ann">
+        <div class="ann-num">1</div>
+        <div class="ann-body">
+          <h4>Summary strip</h4>
+          <p>Five numbers, large type. Record is W–L (voids shown as sub-metric). Total PnL and ROI are computed from <code>v_summary</code>. Hit rate is won/settled; implied is the average entry YES price across settled bets — if the rule is well-calibrated, hit rate should track implied over a large enough sample.</p>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-num">2</div>
+        <div class="ann-body">
+          <h4>Equity curve</h4>
+          <p>A single line: cumulative PnL over time, one point per settled bet. Sourced from <code>v_equity_curve</code>. Zero is the dashed baseline. No moving averages, no shaded confidence bands — just the line. Daily x-axis labels only.</p>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-num">3</div>
+        <div class="ann-body">
+          <h4>Bet ledger</h4>
+          <p>Every paper bet, newest first. Sourced from <code>v_bet_detail</code>. Pending bets at the top are today's slate (already locked at T-30, awaiting game result). Scrolls. No pagination in v0.</p>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-num">4</div>
+        <div class="ann-body">
+          <h4>Matchup &amp; pick</h4>
+          <p>Both teams shown with an abstracted color tile (team abbreviation in team colors, no licensed logos in v0). The <span style="color:var(--accent)">amber</span> pick callout is the team the bot bet YES on — always the favorite.</p>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-num">5</div>
+        <div class="ann-body">
+          <h4>Entry price</h4>
+          <p>The Kalshi YES price in cents at T-30min, as recorded in <code>market_snapshots</code>. For the favorite, this is the higher-priced YES contract of the two per game. A 62¢ entry on a $10 stake buys ~16.1 contracts; a win pays ~$16.13 (PnL +$6.13), a loss pays $0 (PnL −$10.00).</p>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-num">—</div>
+        <div class="ann-body">
+          <h4>What is deliberately not on this screen</h4>
+          <p>No pitcher. No recent form. No lineup. No injury notes. No NO-side, no spreads, no props. No strategy controls. No "place bet" button. All parking lot — v0 is a calculator, not a cockpit.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div>Abbot-C · Overlay Software Co.</div>
+    <div>Mockup · Apr 13, 2026</div>
+  </div>
+</div>
+</body>
+</html>
