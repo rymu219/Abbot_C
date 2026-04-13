@@ -14,6 +14,7 @@ All v0 work lives in `docs/v0/` (specs) and will be built as a clean, minimal en
 
 ## Spec documents (read these first)
 
+- **`docs/v0/06_build_spec.md`** — **AUTHORITATIVE.** Implementation reconciliation memo. Where any doc disagrees, this one wins.
 - `docs/v0/01_charter.md` — purpose, rule, definition of done, parking lot
 - `docs/v0/02_schema.md` — 4 tables, 3 views, Neon Postgres
 - `docs/v0/03_data_dictionary.md` — every term defined, banned terms listed
